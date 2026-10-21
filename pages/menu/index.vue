@@ -31,35 +31,6 @@
 			</view>
 		</view>
 
-		<!-- ③ 优惠券胶囊条 -->
-		<view class="coupon-strip">
-			<scroll-view scroll-x class="cs-scroll">
-				<view class="cs-inner">
-					<view class="cs-pill" v-for="cp in coupons" :key="cp.id" hover-class="hv" @tap="onCoupon">
-						<text class="cs-t">{{ cp.title }} {{ cp.desc }}</text>
-					</view>
-					<view class="cs-pill" hover-class="hv" @tap="onCoupon">
-						<text class="cs-t">周二会员日 全场5.8折</text>
-					</view>
-				</view>
-			</scroll-view>
-			<view class="cs-more" hover-class="hv" @tap="onCoupon">
-				<text class="cs-more-t">点击查看</text>
-				<text class="cs-more-a">∨</text>
-			</view>
-		</view>
-
-		<!-- ④ 新客领券 banner（压缩版） -->
-		<view class="promo-banner">
-			<view class="pb-deco pb-d1"></view>
-			<view class="pb-deco pb-d2"></view>
-			<view class="pb-left">
-				<text class="pb-tag">新朋友专享</text>
-				<view class="pb-title"><text class="pb-big">首单立减 3 元</text><text class="pb-sub2">第二杯半价</text></view>
-				<view class="pb-btn" hover-class="hv" @tap="onCoupon">立即领取</view>
-			</view>
-		</view>
-
 		<!-- ⑤ 页签 -->
 		<view class="mtabs">
 			<view
@@ -88,13 +59,36 @@
 				>
 					<view class="sb-ind"></view>
 					<text class="sb-t">{{ sb.name }}</text>
-					<text class="sb-badge sb-new" v-if="sb.isNew">NEW</text>
-					<text class="sb-badge sb-hot" v-if="sb.isHot">HOT</text>
+					<text class="sb-badge" :class="sb.isHot ? 'sb-hot' : 'sb-new'" v-if="sb.isHot || sb.isNew">{{ sb.isHot ? 'HOT' : 'NEW' }}</text>
 				</view>
 			</scroll-view>
 
 			<scroll-view scroll-y class="plist" :scroll-into-view="'sec-' + sideId" scroll-with-animation>
 				<view id="sec-all"></view>
+				<!-- 券条随列表滚动（普通 flex 行，避免 scroll-x 嵌套 scroll-y 撑宽内容） -->
+				<view class="coupon-strip">
+					<view class="cs-inner">
+						<view class="cs-pill" v-for="cp in coupons" :key="cp.id" hover-class="hv" @tap="onCoupon">
+							<text class="cs-t">{{ cp.title }} {{ cp.desc }}</text>
+						</view>
+						<view class="cs-pill" hover-class="hv" @tap="onCoupon">
+							<text class="cs-t">周二会员日 全场5.8折</text>
+						</view>
+					</view>
+					<view class="cs-more" hover-class="hv" @tap="onCoupon">
+						<text class="cs-more-t">点击查看</text>
+						<text class="cs-more-a">∨</text>
+					</view>
+				</view>
+				<view class="promo-banner">
+					<view class="pb-deco pb-d1"></view>
+					<view class="pb-deco pb-d2"></view>
+					<view class="pb-left">
+						<text class="pb-tag">新朋友专享</text>
+						<view class="pb-title"><text class="pb-big">首单立减 3 元</text><text class="pb-sub2">第二杯半价</text></view>
+						<view class="pb-btn" hover-class="hv" @tap="onCoupon">立即领取</view>
+					</view>
+				</view>
 				<view class="no-drink" v-if="!sections.length">这个分区暂时没有饮品，看看别的吧</view>
 				<view class="sec" v-for="sec in sections" :key="sec.id" :id="'sec-' + sec.id">
 					<view class="sec-head">
@@ -497,28 +491,31 @@ const onCoupon = () => {
 	margin-top: 2rpx;
 }
 
-/* ③ 优惠券胶囊条（紧凑） */
+/* ③ 优惠券胶囊条（随列表滚动） */
 .coupon-strip {
 	display: flex;
 	align-items: center;
-	padding: 2rpx 24rpx 6rpx;
-}
-.cs-scroll {
-	flex: 1;
-	white-space: nowrap;
+	padding: 10rpx 0 0;
 }
 .cs-inner {
-	display: inline-flex;
+	flex: 1;
+	min-width: 0;
+	display: flex;
 	gap: 10rpx;
+	overflow: hidden;
 }
 .cs-pill {
-	flex-shrink: 0;
+	flex-shrink: 1;
+	min-width: 0;
+	overflow: hidden;
 	padding: 6rpx 16rpx;
 	background: #ffffff;
 	border: 2rpx solid #eadfcd;
 	border-radius: 999rpx;
 	font-size: 20rpx;
 	color: #6f4a2f;
+	white-space: nowrap;
+	text-overflow: ellipsis;
 }
 .cs-more {
 	flex-shrink: 0;
@@ -536,10 +533,10 @@ const onCoupon = () => {
 	margin-left: 2rpx;
 }
 
-/* ④ 新客 banner（紧凑） */
+/* ④ 新客 banner（随列表滚动） */
 .promo-banner {
 	position: relative;
-	margin: 2rpx 24rpx 8rpx;
+	margin: 16rpx 0 6rpx;
 	padding: 18rpx 26rpx;
 	border-radius: 22rpx;
 	background: linear-gradient(120deg, #fdeedc 0%, #f9dcb8 58%, #f6cf9e 100%);
@@ -681,8 +678,8 @@ const onCoupon = () => {
 }
 .sb-badge {
 	position: absolute;
-	top: 8rpx;
-	right: 12rpx;
+	top: 6rpx;
+	right: 10rpx;
 	font-size: 16rpx;
 	font-weight: bold;
 	line-height: 1;
@@ -695,8 +692,6 @@ const onCoupon = () => {
 }
 .sb-hot {
 	background: #8b5e3c;
-	top: auto;
-	bottom: 8rpx;
 }
 
 .plist {
@@ -714,41 +709,41 @@ const onCoupon = () => {
 .sec-head {
 	display: flex;
 	align-items: baseline;
-	padding: 22rpx 4rpx 14rpx;
+	padding: 26rpx 4rpx 16rpx;
 }
 .sec-name {
-	font-size: 26rpx;
+	font-size: 27rpx;
 	font-weight: bold;
 }
 .sec-desc {
 	margin-left: 12rpx;
-	font-size: 19rpx;
+	font-size: 20rpx;
 	color: #b7ab9e;
 }
 .p-card {
 	display: flex;
 	background: #ffffff;
 	border-radius: 24rpx;
-	padding: 18rpx;
-	margin-bottom: 18rpx;
+	padding: 20rpx;
+	margin-bottom: 20rpx;
 	box-shadow: 0 8rpx 24rpx rgba(61, 50, 41, 0.06);
 }
 .p-img {
 	flex-shrink: 0;
-	width: 150rpx;
-	height: 150rpx;
+	width: 176rpx;
+	height: 176rpx;
 	border-radius: 16rpx;
 	background: #f3eae0;
 }
 .p-body {
 	flex: 1;
 	min-width: 0;
-	margin-left: 18rpx;
+	margin-left: 20rpx;
 	display: flex;
 	flex-direction: column;
 }
 .p-name {
-	font-size: 28rpx;
+	font-size: 29rpx;
 	font-weight: bold;
 	color: #3d3229;
 	overflow: hidden;
@@ -758,14 +753,14 @@ const onCoupon = () => {
 .p-tags {
 	display: flex;
 	align-items: center;
-	margin-top: 6rpx;
+	margin-top: 8rpx;
 }
 .p-tag {
 	flex-shrink: 0;
 	margin-right: 10rpx;
-	padding: 2rpx 12rpx;
+	padding: 3rpx 14rpx;
 	border-radius: 6rpx;
-	font-size: 18rpx;
+	font-size: 19rpx;
 }
 .p-new {
 	color: #e8833a;
@@ -776,8 +771,8 @@ const onCoupon = () => {
 	background: #f3eae0;
 }
 .p-desc {
-	margin-top: 6rpx;
-	font-size: 21rpx;
+	margin-top: 8rpx;
+	font-size: 22rpx;
 	color: #8c8177;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -795,29 +790,29 @@ const onCoupon = () => {
 	color: #e8833a;
 }
 .p-sym {
-	font-size: 22rpx;
+	font-size: 24rpx;
 	font-weight: bold;
 }
 .p-num {
-	font-size: 36rpx;
+	font-size: 40rpx;
 	font-weight: bold;
 }
 .p-orig {
 	margin-left: 10rpx;
-	font-size: 20rpx;
+	font-size: 21rpx;
 	color: #b7ab9e;
 	text-decoration: line-through;
 }
 .p-buy {
 	flex-shrink: 0;
-	height: 56rpx;
-	line-height: 56rpx;
-	padding: 0 26rpx;
+	height: 64rpx;
+	line-height: 64rpx;
+	padding: 0 32rpx;
 	border-radius: 999rpx;
 	background: linear-gradient(135deg, #f09a52 0%, #e8833a 100%);
 	box-shadow: 0 6rpx 14rpx rgba(232, 131, 58, 0.3);
 	color: #ffffff;
-	font-size: 24rpx;
+	font-size: 25rpx;
 	font-weight: 500;
 }
 
