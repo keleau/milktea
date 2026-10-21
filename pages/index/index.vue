@@ -31,9 +31,6 @@
 					</view>
 				</swiper-item>
 			</swiper>
-			<view class="banner-dots" :class="'t-' + banners[cur].theme">
-				<view v-for="(b, bi) in banners" :key="bi" class="dot" :class="{ on: cur === bi }"></view>
-			</view>
 		</view>
 
 		<!-- ② 白色内容大板：会员行 / 双列 / 四宫格 / 更多惊喜 / 活动条 -->
@@ -414,32 +411,6 @@ page {
 .t-light .cta-btn { background: #8b5e3c; box-shadow: 0 10rpx 24rpx rgba(139, 94, 60, 0.35); }
 .t-dark .cta-btn { background: #e8833a; box-shadow: 0 10rpx 24rpx rgba(232, 131, 58, 0.4); }
 .t-fresh .cta-btn { background: #5c9e6e; box-shadow: 0 10rpx 24rpx rgba(92, 158, 110, 0.35); }
-
-/* 指示点 */
-.banner-dots {
-	position: absolute;
-	left: 44rpx;
-	bottom: 60rpx;
-	z-index: 2;
-	display: flex;
-	align-items: center;
-	gap: 12rpx;
-}
-.dot {
-	width: 12rpx;
-	height: 12rpx;
-	border-radius: 999rpx;
-	background: rgba(61, 50, 41, 0.22);
-	transition: all 0.3s ease;
-}
-.t-dark .dot { background: rgba(255, 255, 255, 0.4); }
-.t-fresh .dot { background: rgba(47, 70, 52, 0.25); }
-.dot.on {
-	width: 36rpx;
-	background: #8b5e3c;
-}
-.t-dark .dot.on { background: #ffffff; }
-.t-fresh .dot.on { background: #5c9e6e; }
 
 /* ===== ② 白色内容大板 ===== */
 .sheet {
