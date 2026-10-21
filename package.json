@@ -1,0 +1,8 @@
+{
+  "name": "milktea",
+  "version": "1.0.0",
+  "description": "四猫茶学园奶茶点单小程序（uniapp Vue3，HBuilderX 工程）",
+  "dependencies": {
+    "uqrcodejs": "^4.0.7"
+  }
+}

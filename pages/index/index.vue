@@ -1,0 +1,738 @@
+<template>
+	<view class="page">
+		<!-- ① 满版海报轮播（近半屏高，海报级大字排版，转场后文字先入、画面后到） -->
+		<view class="banner-wrap">
+			<swiper
+				class="banner-swiper"
+				:style="{ height: bannerH }"
+				circular
+				autoplay
+				:interval="4800"
+				:duration="640"
+				@change="onSlide"
+			>
+				<swiper-item v-for="(b, bi) in banners" :key="bi">
+					<view class="slide" :class="['t-' + b.theme, { act: cur === bi }]">
+						<image class="slide-bg" :src="b.bg" mode="aspectFill"></image>
+						<view class="slide-scrim"></view>
+						<view class="slide-content" :style="{ paddingTop: statusBarHeight + 54 + 'px' }">
+							<view class="sl-kicker">{{ b.kicker }}</view>
+							<view class="sl-title">{{ b.title }}</view>
+							<view class="sl-big">
+								<text class="big-pre">{{ b.big[0] }}</text>
+								<text class="big-num">{{ b.big[1] }}</text>
+								<text class="big-suf">{{ b.big[2] }}</text>
+							</view>
+							<view class="sl-sub">{{ b.sub }}</view>
+							<view class="sl-cta">
+								<view class="cta-btn" hover-class="hv" @tap="goBanner(b)">{{ b.btn }}</view>
+							</view>
+						</view>
+					</view>
+				</swiper-item>
+			</swiper>
+			<view class="banner-dots" :class="'t-' + banners[cur].theme">
+				<view v-for="(b, bi) in banners" :key="bi" class="dot" :class="{ on: cur === bi }"></view>
+			</view>
+		</view>
+
+		<!-- ② 白色内容大板：会员行 / 双列 / 四宫格 / 更多惊喜 / 活动条 -->
+		<view class="sheet anim d1">
+			<view class="member-row">
+				<view class="mb-id">
+					<view class="mb-badge">V2</view>
+					<text class="mb-level">银牌猫评员</text>
+				</view>
+				<view class="mb-stats">
+					<view class="mb-stat"><text class="mb-key">优惠券</text><text class="mb-val">2张</text></view>
+					<view class="mb-sep"></view>
+					<view class="mb-stat"><text class="mb-key">积分</text><text class="mb-val">320</text></view>
+					<view class="mb-sep"></view>
+					<view class="mb-stat"><text class="mb-key">余额</text><text class="mb-val">8.5元</text></view>
+				</view>
+			</view>
+
+			<view class="dual-row">
+				<view class="du-col" hover-class="hv" @tap="toMenu">
+					<text class="du-en">PICK UP</text>
+					<text class="du-title">自取点单</text>
+					<text class="du-sub">下单享优惠 ›</text>
+				</view>
+				<view class="du-divider"></view>
+				<view class="du-col" hover-class="hv" @tap="toMenu">
+					<text class="du-en">DELIVERY</text>
+					<text class="du-title">外送到家</text>
+					<text class="du-sub">每周五最高免配 ›</text>
+				</view>
+			</view>
+
+			<view class="grid-row">
+				<view class="g-item" hover-class="hv" @tap="comingSoon">
+					<uni-icons type="medal" size="27" color="#5A4F43"></uni-icons>
+					<text class="g-text">积分商城</text>
+				</view>
+				<view class="g-item" hover-class="hv" @tap="comingSoon">
+					<uni-icons type="gift" size="27" color="#5A4F43"></uni-icons>
+					<text class="g-text">进群有礼</text>
+				</view>
+				<view class="g-item" hover-class="hv" @tap="comingSoon">
+					<view class="g-hot">
+						<uni-icons type="vip" size="25" color="#FFFFFF"></uni-icons>
+						<text class="g-badge">5.8折</text>
+					</view>
+					<text class="g-text">周二会员日</text>
+				</view>
+				<view class="g-item" hover-class="hv" @tap="comingSoon">
+					<uni-icons type="wallet" size="27" color="#5A4F43"></uni-icons>
+					<text class="g-text">储值有礼</text>
+				</view>
+			</view>
+
+			<text class="more-link" hover-class="hv" @tap="comingSoon">更多惊喜 ∨</text>
+
+			<view class="act-banner" hover-class="hv" @tap="comingSoon">
+				<view class="act-left">
+					<text class="act-t1">周二会员日 · 爪价 5.8 折</text>
+					<text class="act-t2">每周二全场饮品，会员专享价</text>
+				</view>
+				<view class="act-btn">立即抢购</view>
+			</view>
+		</view>
+
+		<!-- ③ 今日猫推荐 -->
+		<view class="section anim d2">
+			<view class="sec-head">
+				<text class="sec-title">今日猫推荐</text>
+				<text class="sec-more" hover-class="hv" @tap="toRank">完整榜单 ›</text>
+			</view>
+			<view
+				class="rec-card"
+				v-for="item in recommends"
+				:key="item.id"
+				hover-class="hv"
+				@tap="toDetail(item.id)"
+			>
+				<image class="rec-img" :src="item.img" mode="aspectFill"></image>
+				<view class="rec-info">
+					<view class="rec-top">
+						<text class="rec-name">{{ item.name }}</text>
+						<text class="line-tag" :style="{ color: lineOf(item.line).color, background: lineOf(item.line).bg }">
+							{{ lineOf(item.line).tag }}
+						</text>
+					</view>
+					<paws :score="item.paws"></paws>
+					<text class="rec-desc">{{ item.desc }}</text>
+					<view class="rec-bottom">
+						<view class="price"><text class="price-sym">¥</text><text class="price-num">{{ item.price }}</text></view>
+						<view class="rec-btn" hover-class="hv" @tap.stop="toDetail(item.id)">去点单</view>
+					</view>
+				</view>
+			</view>
+		</view>
+
+		<view class="footer-slogan anim d2">
+			<text>— 四猫茶学园 · {{ store.slogan }} —</text>
+		</view>
+	</view>
+</template>
+
+<script setup>
+import { ref, computed } from 'vue'
+import { DRINKS, LINES, STORE, genBanner } from '../../common/js/data.js'
+
+// 状态栏高度：海报轮播沉浸到状态栏之下
+const statusBarHeight = uni.getSystemInfoSync().statusBarHeight
+const bannerH = 700 + statusBarHeight * 2 + 'rpx'
+
+const store = STORE
+// 当前轮播页索引：驱动「海报滑入 → 文字依次入场 → 场景图压轴」的动效时序
+const cur = ref(0)
+const onSlide = (e) => {
+	cur.value = e.detail.current
+}
+const recommends = computed(() => DRINKS.filter(d => d.hot).slice(0, 3))
+const lineOf = (id) => LINES.find(l => l.id === id)
+
+// 海报轮播：三页三色，杯子在右、左上留白放文字（prompt 与预热 URL 严格一致）
+const banners = [
+	{
+		theme: 'light',
+		kicker: '新客专享',
+		title: '猫爪认证好茶',
+		big: ['新客', '9', '折 喝爆款'],
+		sub: '双杯 85 折 · 三杯 8 折',
+		btn: '点击领取',
+		bg: genBanner('warm creamy caramel milk tea swirl scene, silky milk waves in beige tones, two milk tea cups on wooden table on the right side, cozy dessert shop counter, soft morning light, empty copy space on the upper left'),
+		link: 'menu'
+	},
+	{
+		theme: 'dark',
+		kicker: '每周二 · 会员日',
+		title: '猫爪会员日',
+		big: ['爪价低至', '5.8', '折'],
+		sub: '银牌 5.8 · 金牌 5 · 黑金 4.5 折',
+		btn: '立即查看',
+		bg: genBanner('dark roasted brown sugar bubble milk tea cups with syrup drizzle on the right side, deep caramel tones, moody warm light, luxurious dark background, empty copy space on the upper left'),
+		link: 'soon'
+	},
+	{
+		theme: 'fresh',
+		kicker: '玉·清爽系列',
+		title: '冰爽果茶季',
+		big: ['新品', '12', '元起'],
+		sub: '百香果 · 柠檬 · 青提 冷萃上新',
+		btn: '去尝鲜',
+		bg: genBanner('fresh fruit tea cups with passion fruit lemon slices and mint on the right side, bright airy pastel green background, summer refreshing vibe, empty copy space on the upper left'),
+		link: 'menu'
+	}
+]
+
+const goBanner = (b) => {
+	if (b.link === 'soon') comingSoon()
+	else toMenu()
+}
+const toMenu = () => {
+	uni.switchTab({ url: '/pages/menu/index' })
+}
+const toDetail = (id) => {
+	uni.navigateTo({ url: '/pages/detail/index?id=' + id })
+}
+const toRank = () => {
+	uni.navigateTo({ url: '/pages/rank/index' })
+}
+const comingSoon = () => {
+	uni.showToast({ title: '敬请期待', icon: 'none' })
+}
+</script>
+
+<style>
+page {
+	background: #faf6f0;
+}
+.page {
+	min-height: 100vh;
+	padding-bottom: 48rpx;
+}
+.hv {
+	opacity: 0.85;
+	transform: scale(0.97);
+}
+
+/* 入场动效 */
+@keyframes fadeUp {
+	from {
+		opacity: 0;
+		transform: translateY(28rpx);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+.anim {
+	animation: fadeUp 0.55s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+.d1 { animation-delay: 0.08s; }
+.d2 { animation-delay: 0.16s; }
+
+/* ===== ① 满版海报轮播 ===== */
+.banner-wrap {
+	position: relative;
+}
+.banner-swiper {
+	height: 700rpx;
+}
+.slide {
+	position: relative;
+	height: 100%;
+	overflow: hidden;
+}
+.slide.t-light { background: linear-gradient(160deg, #f8ecd6 0%, #f0dcba 100%); }
+.slide.t-dark { background: linear-gradient(160deg, #6f4b2c 0%, #4c311c 100%); }
+.slide.t-fresh { background: linear-gradient(160deg, #eef4e4 0%, #d7e8ce 100%); }
+
+.slide-bg {
+	position: absolute;
+	left: 0;
+	top: 0;
+	width: 100%;
+	height: 100%;
+	opacity: 0;
+}
+.slide-scrim {
+	position: absolute;
+	left: 0;
+	top: 0;
+	right: 0;
+	bottom: 0;
+}
+.t-light .slide-scrim {
+	background: linear-gradient(115deg, rgba(250, 240, 222, 0.9) 10%, rgba(250, 240, 222, 0.45) 45%, rgba(250, 240, 222, 0) 72%);
+}
+.t-dark .slide-scrim {
+	background: linear-gradient(115deg, rgba(56, 36, 20, 0.88) 10%, rgba(56, 36, 20, 0.4) 45%, rgba(56, 36, 20, 0) 72%);
+}
+.t-fresh .slide-scrim {
+	background: linear-gradient(115deg, rgba(242, 248, 234, 0.9) 10%, rgba(242, 248, 234, 0.45) 45%, rgba(242, 248, 234, 0) 72%);
+}
+
+.slide-content {
+	position: relative;
+	z-index: 1;
+	height: 100%;
+	padding-left: 44rpx;
+	padding-right: 320rpx;
+	box-sizing: border-box;
+}
+
+/* 转场动效：海报滑稳后，kicker→标题→大数字→副题→按钮 依次入场，场景图最后浮现 */
+.sl-kicker,
+.sl-title,
+.sl-big,
+.sl-sub,
+.sl-cta {
+	opacity: 0;
+}
+.slide.act .sl-kicker { animation: txtIn 0.36s ease 0.5s both; }
+.slide.act .sl-title { animation: txtIn 0.36s ease 0.58s both; }
+.slide.act .sl-big { animation: popIn 0.42s cubic-bezier(0.34, 1.4, 0.64, 1) 0.68s both; }
+.slide.act .sl-sub { animation: txtIn 0.36s ease 0.78s both; }
+.slide.act .sl-cta { animation: txtIn 0.36s ease 0.86s both; }
+.slide.act .slide-bg { animation: bgIn 0.6s ease-out 0.95s both; }
+@keyframes txtIn {
+	from {
+		opacity: 0;
+		transform: translateY(22rpx);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+@keyframes popIn {
+	from {
+		opacity: 0;
+		transform: scale(0.86) translateY(16rpx);
+	}
+	to {
+		opacity: 1;
+		transform: scale(1) translateY(0);
+	}
+}
+@keyframes bgIn {
+	from {
+		opacity: 0;
+		transform: translateX(64rpx) scale(1.05);
+	}
+	to {
+		opacity: 1;
+		transform: translateX(0) scale(1);
+	}
+}
+
+.sl-kicker {
+	display: inline-block;
+	font-size: 22rpx;
+	font-weight: 500;
+	letter-spacing: 4rpx;
+	padding: 8rpx 22rpx;
+	border-radius: 999rpx;
+}
+.t-light .sl-kicker { background: rgba(255, 255, 255, 0.8); color: #8b5e3c; }
+.t-dark .sl-kicker { background: rgba(255, 255, 255, 0.16); color: #ffe9d2; }
+.t-fresh .sl-kicker { background: rgba(255, 255, 255, 0.75); color: #4f8a60; }
+
+.sl-title {
+	margin-top: 18rpx;
+	font-size: 60rpx;
+	font-weight: 800;
+	letter-spacing: 3rpx;
+	line-height: 1.2;
+	white-space: nowrap;
+}
+.t-light .sl-title { color: #3d3229; }
+.t-dark .sl-title { color: #fff7ec; }
+.t-fresh .sl-title { color: #2f4634; }
+
+/* 海报大数字行：前缀小字 + 超大数字 + 后缀小字 */
+.sl-big {
+	margin-top: 6rpx;
+	display: flex;
+	align-items: baseline;
+}
+.big-pre {
+	font-size: 40rpx;
+	font-weight: 800;
+	letter-spacing: 2rpx;
+	margin-right: 8rpx;
+}
+.big-num {
+	font-size: 104rpx;
+	font-weight: 900;
+	line-height: 1.05;
+	letter-spacing: 0;
+}
+.big-suf {
+	font-size: 40rpx;
+	font-weight: 800;
+	letter-spacing: 2rpx;
+	margin-left: 8rpx;
+}
+.t-light .sl-big { color: #3d3229; }
+.t-light .big-num { color: #c96f2a; }
+.t-dark .sl-big { color: #fff7ec; }
+.t-dark .big-num { color: #ffb054; }
+.t-fresh .sl-big { color: #2f4634; }
+.t-fresh .big-num { color: #4f8a60; }
+
+.sl-sub {
+	margin-top: 14rpx;
+	font-size: 23rpx;
+	letter-spacing: 1rpx;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.t-light .sl-sub { color: #7a6c5d; }
+.t-dark .sl-sub { color: rgba(255, 240, 220, 0.82); }
+.t-fresh .sl-sub { color: #5d7362; }
+
+.sl-cta {
+	margin-top: 30rpx;
+}
+.cta-btn {
+	display: inline-block;
+	height: 72rpx;
+	line-height: 72rpx;
+	padding: 0 44rpx;
+	border-radius: 999rpx;
+	font-size: 29rpx;
+	font-weight: 500;
+	color: #ffffff;
+	transition: transform 0.18s ease, opacity 0.18s ease;
+}
+.t-light .cta-btn { background: #8b5e3c; box-shadow: 0 10rpx 24rpx rgba(139, 94, 60, 0.35); }
+.t-dark .cta-btn { background: #e8833a; box-shadow: 0 10rpx 24rpx rgba(232, 131, 58, 0.4); }
+.t-fresh .cta-btn { background: #5c9e6e; box-shadow: 0 10rpx 24rpx rgba(92, 158, 110, 0.35); }
+
+/* 指示点 */
+.banner-dots {
+	position: absolute;
+	left: 44rpx;
+	bottom: 60rpx;
+	z-index: 2;
+	display: flex;
+	align-items: center;
+	gap: 12rpx;
+}
+.dot {
+	width: 12rpx;
+	height: 12rpx;
+	border-radius: 999rpx;
+	background: rgba(61, 50, 41, 0.22);
+	transition: all 0.3s ease;
+}
+.t-dark .dot { background: rgba(255, 255, 255, 0.4); }
+.t-fresh .dot { background: rgba(47, 70, 52, 0.25); }
+.dot.on {
+	width: 36rpx;
+	background: #8b5e3c;
+}
+.t-dark .dot.on { background: #ffffff; }
+.t-fresh .dot.on { background: #5c9e6e; }
+
+/* ===== ② 白色内容大板 ===== */
+.sheet {
+	margin: -36rpx 24rpx 0;
+	position: relative;
+	z-index: 2;
+	background: #ffffff;
+	border-radius: 32rpx;
+	padding: 8rpx 32rpx 32rpx;
+	box-shadow: 0 8rpx 24rpx rgba(61, 50, 41, 0.06);
+}
+.member-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	height: 104rpx;
+	border-bottom: 2rpx solid #f5efe7;
+}
+.mb-id {
+	display: flex;
+	align-items: center;
+}
+.mb-badge {
+	width: 48rpx;
+	height: 48rpx;
+	line-height: 48rpx;
+	text-align: center;
+	background: #8b5e3c;
+	color: #ffffff;
+	font-size: 21rpx;
+	font-weight: bold;
+	border-radius: 13rpx 13rpx 13rpx 4rpx;
+	margin-right: 12rpx;
+}
+.mb-level {
+	font-size: 28rpx;
+	font-weight: 500;
+	color: #3d3229;
+}
+.mb-stats {
+	display: flex;
+	align-items: center;
+}
+.mb-stat {
+	display: flex;
+	align-items: center;
+}
+.mb-key {
+	font-size: 24rpx;
+	color: #8c8177;
+	margin-right: 8rpx;
+}
+.mb-val {
+	font-size: 26rpx;
+	font-weight: bold;
+	color: #3d3229;
+}
+.mb-sep {
+	width: 2rpx;
+	height: 28rpx;
+	background: #f0e9e1;
+	margin: 0 20rpx;
+}
+
+/* 双列（益禾堂式：裸文本列 + 幽灵英文眉题） */
+.dual-row {
+	display: flex;
+	align-items: stretch;
+	padding: 30rpx 0;
+	border-bottom: 2rpx solid #f5efe7;
+}
+.du-col {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	transition: transform 0.18s ease, opacity 0.18s ease;
+}
+.du-en {
+	font-size: 22rpx;
+	color: #e5ddd0;
+	font-weight: bold;
+	letter-spacing: 5rpx;
+}
+.du-title {
+	margin-top: 2rpx;
+	font-size: 36rpx;
+	font-weight: bold;
+	color: #3d3229;
+}
+.du-sub {
+	margin-top: 8rpx;
+	font-size: 22rpx;
+	color: #a89d90;
+}
+.du-divider {
+	width: 2rpx;
+	background: #f5efe7;
+	margin: 8rpx 0;
+}
+
+/* 四宫格（裸线性图标，热项彩色圆） */
+.grid-row {
+	display: flex;
+	padding: 32rpx 0 8rpx;
+}
+.g-item {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	transition: transform 0.18s ease, opacity 0.18s ease;
+}
+.g-item > view,
+.g-item > .uni-icons {
+	height: 72rpx;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+.g-hot {
+	position: relative;
+	width: 72rpx;
+	height: 72rpx;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: #e8833a;
+	border-radius: 50%;
+	box-shadow: 0 6rpx 16rpx rgba(232, 131, 58, 0.35);
+}
+.g-badge {
+	position: absolute;
+	top: -10rpx;
+	right: -20rpx;
+	font-size: 18rpx;
+	line-height: 1;
+	padding: 6rpx 10rpx;
+	background: #ffffff;
+	color: #e8833a;
+	border-radius: 999rpx;
+	border: 2rpx solid #fdeedd;
+}
+.g-text {
+	margin-top: 14rpx;
+	font-size: 24rpx;
+	color: #3d3229;
+}
+.more-link {
+	display: block;
+	text-align: center;
+	font-size: 24rpx;
+	color: #a89d90;
+	padding: 10rpx 0 24rpx;
+	transition: transform 0.18s ease, opacity 0.18s ease;
+}
+
+/* 活动条 */
+.act-banner {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	background: linear-gradient(96deg, #fdf0e0 0%, #f9e3c8 60%, #f6d9b8 100%);
+	border-radius: 24rpx;
+	padding: 24rpx 28rpx;
+}
+.act-left {
+	display: flex;
+	flex-direction: column;
+}
+.act-t1 {
+	font-size: 28rpx;
+	font-weight: bold;
+	color: #6f4a2f;
+}
+.act-t2 {
+	margin-top: 6rpx;
+	font-size: 22rpx;
+	color: #a3856b;
+}
+.act-btn {
+	flex-shrink: 0;
+	height: 56rpx;
+	line-height: 56rpx;
+	padding: 0 28rpx;
+	background: #8b5e3c;
+	color: #ffffff;
+	font-size: 24rpx;
+	border-radius: 999rpx;
+	transition: transform 0.18s ease, opacity 0.18s ease;
+}
+
+/* ===== ③ 今日猫推荐 ===== */
+.section {
+	margin: 32rpx 32rpx 0;
+}
+.sec-head {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	margin-bottom: 24rpx;
+}
+.sec-title {
+	font-size: 32rpx;
+	font-weight: bold;
+	color: #3d3229;
+}
+.sec-more {
+	font-size: 24rpx;
+	color: #8c8177;
+	transition: transform 0.18s ease, opacity 0.18s ease;
+}
+.rec-card {
+	display: flex;
+	background: #ffffff;
+	border-radius: 40rpx;
+	padding: 24rpx;
+	margin-bottom: 24rpx;
+	box-shadow: 0 8rpx 24rpx rgba(61, 50, 41, 0.06);
+	transition: transform 0.18s ease, opacity 0.18s ease;
+}
+.rec-img {
+	flex-shrink: 0;
+	width: 216rpx;
+	height: 216rpx;
+	border-radius: 28rpx;
+	background: #f3eae0;
+}
+.rec-info {
+	flex: 1;
+	min-width: 0;
+	margin-left: 24rpx;
+	display: flex;
+	flex-direction: column;
+}
+.rec-top {
+	display: flex;
+	align-items: center;
+	gap: 12rpx;
+}
+.rec-name {
+	font-size: 30rpx;
+	font-weight: 500;
+	color: #3d3229;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+.line-tag {
+	flex-shrink: 0;
+	font-size: 20rpx;
+	padding: 4rpx 14rpx;
+	border-radius: 8rpx;
+}
+.rec-desc {
+	font-size: 24rpx;
+	color: #8c8177;
+	margin-top: 10rpx;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+.rec-bottom {
+	margin-top: auto;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+.price {
+	color: #e8833a;
+}
+.price-sym {
+	font-size: 24rpx;
+}
+.price-num {
+	font-size: 36rpx;
+	font-weight: 500;
+}
+.rec-btn {
+	height: 64rpx;
+	line-height: 64rpx;
+	padding: 0 32rpx;
+	background: #8b5e3c;
+	color: #ffffff;
+	font-size: 26rpx;
+	border-radius: 32rpx;
+	transition: transform 0.18s ease, opacity 0.18s ease;
+}
+
+.footer-slogan {
+	margin-top: 32rpx;
+	text-align: center;
+	font-size: 22rpx;
+	color: #c9c0b7;
+}
+</style>
