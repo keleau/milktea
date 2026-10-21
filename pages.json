@@ -11,7 +11,7 @@
 			"path": "pages/menu/index",
 			"style": {
 				"navigationBarTitleText": "点单",
-				"navigationBarBackgroundColor": "#FAF6F0"
+				"navigationStyle": "custom"
 			}
 		},
 		{

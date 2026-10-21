@@ -29,15 +29,15 @@ export const LINES = [
 // ===== 饮品（四线各 3 款） =====
 export const DRINKS = [
 	// 布奇·醇厚
-	{ id: 1, line: 'buchi', name: '黑糖波波厚奶茶', price: 14, paws: 5, hot: true, isNew: false, desc: '手熬黑糖挂壁，波波Q弹，厚乳香浓', img: genImg('one cup of brown sugar boba milk tea with dark syrup streaks and tapioca pearls at the bottom') },
-	{ id: 2, line: 'buchi', name: '经典原味厚乳奶茶', price: 12, paws: 5, hot: true, isNew: false, desc: '锡兰红茶配厚牛乳，经典不翻车', img: genImg('one cup of classic hong kong style milk tea, silky tan brown color') },
+	{ id: 1, line: 'buchi', name: '黑糖波波厚奶茶', price: 14, orig: 17, paws: 5, hot: true, isNew: false, desc: '手熬黑糖挂壁，波波Q弹，厚乳香浓', img: genImg('one cup of brown sugar boba milk tea with dark syrup streaks and tapioca pearls at the bottom') },
+	{ id: 2, line: 'buchi', name: '经典原味厚乳奶茶', price: 12, orig: 15, paws: 4, hot: true, isNew: false, desc: '锡兰红茶配厚牛乳，经典不翻车', img: genImg('one cup of classic hong kong style milk tea, silky tan brown color') },
 	{ id: 3, line: 'buchi', name: '提拉米苏厚乳茶', price: 16, paws: 4, hot: false, isNew: true, desc: '可可粉轻撒，奶油顶配厚乳茶底', img: genImg('one cup of tiramisu layered milk tea topped with cocoa powder and cream foam') },
 	// 坂本·纯选
 	{ id: 4, line: 'sakamoto', name: '茉莉初雪轻乳茶', price: 12, paws: 4, hot: false, isNew: false, desc: '茉莉雪芽打底，轻薄乳盖', img: genImg('one cup of jasmine green milk tea with light milk foam, pale golden tea color') },
 	{ id: 5, line: 'sakamoto', name: '四季春原叶纯茶', price: 9, paws: 4, hot: false, isNew: false, desc: '原叶冷萃，零奶零糖也回甘', img: genImg('one cup of amber oolong tea, clear brewed tea with ice cubes') },
 	{ id: 6, line: 'sakamoto', name: '轻乳乌龙茶', price: 11, paws: 3, hot: false, isNew: true, desc: '三分甜轻负担，乌龙回香', img: genImg('one cup of oolong milk tea, light beige color with gentle tea and milk layers') },
 	// 汤姆·甜心角落
-	{ id: 7, line: 'tom', name: '布丁可可萌宠杯', price: 15, paws: 5, hot: false, isNew: false, desc: '整颗焦糖布丁沉底，可可香浓', img: genImg('one cup of chocolate milk with caramel pudding at the bottom, creamy brown layers') },
+	{ id: 7, line: 'tom', name: '布丁可可萌宠杯', price: 15, orig: 18, paws: 4, hot: true, isNew: false, desc: '整颗焦糖布丁沉底，可可香浓', img: genImg('one cup of chocolate milk with caramel pudding at the bottom, creamy brown layers') },
 	{ id: 8, line: 'tom', name: '芋泥啵啵鲜奶茶', price: 15, paws: 5, hot: false, isNew: false, desc: '手捣芋泥厚挂壁，芋圆软糯', img: genImg('one cup of purple taro milk tea with taro paste smears and chewy taro balls') },
 	{ id: 9, line: 'tom', name: '草莓芝士奶盖', price: 16, paws: 4, hot: false, isNew: true, desc: '鲜草莓果肉，咸香芝士奶盖', img: genImg('one cup of strawberry milk tea with pink strawberry puree and white cheese foam top') },
 	// 玉·清爽

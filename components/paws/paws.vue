@@ -52,6 +52,7 @@ defineProps({
 	box-shadow: 0.68em 0.06em 0 0 currentColor;
 }
 .paw.on {
-	color: #e8833a;
+	/* 评分用弱化焦糖色，不与价格/热项的强调橘抢焦点 */
+	color: #c9a886;
 }
 </style>

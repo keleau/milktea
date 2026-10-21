@@ -11,21 +11,21 @@
 				:duration="640"
 				@change="onSlide"
 			>
-				<swiper-item v-for="(b, bi) in banners" :key="bi">
-					<view class="slide" :class="['t-' + b.theme, { act: cur === bi }]">
-						<image class="slide-bg" :src="b.bg" mode="aspectFill"></image>
+				<swiper-item v-for="(bn, bi) in banners" :key="bi">
+					<view class="slide" :class="['t-' + bn.theme, { act: cur === bi }]">
+						<image class="slide-bg" :src="bn.bg" mode="aspectFill"></image>
 						<view class="slide-scrim"></view>
-						<view class="slide-content" :style="{ paddingTop: statusBarHeight + 54 + 'px' }">
-							<view class="sl-kicker">{{ b.kicker }}</view>
-							<view class="sl-title">{{ b.title }}</view>
+						<view class="slide-content" :style="{ paddingTop: contentTop }">
+							<view class="sl-kicker">{{ bn.kicker }}</view>
+							<view class="sl-title">{{ bn.title }}</view>
 							<view class="sl-big">
-								<text class="big-pre">{{ b.big[0] }}</text>
-								<text class="big-num">{{ b.big[1] }}</text>
-								<text class="big-suf">{{ b.big[2] }}</text>
+								<text class="big-pre">{{ bn.big[0] }}</text>
+								<text class="big-num">{{ bn.big[1] }}</text>
+								<text class="big-suf">{{ bn.big[2] }}</text>
 							</view>
-							<view class="sl-sub">{{ b.sub }}</view>
+							<view class="sl-sub">{{ bn.sub }}</view>
 							<view class="sl-cta">
-								<view class="cta-btn" hover-class="hv" @tap="goBanner(b)">{{ b.btn }}</view>
+								<view class="cta-btn" hover-class="hv" @tap="goBanner(bn)">{{ bn.btn }}</view>
 							</view>
 						</view>
 					</view>
@@ -41,11 +41,11 @@
 					<text class="mb-level">银牌猫评员</text>
 				</view>
 				<view class="mb-stats">
-					<view class="mb-stat"><text class="mb-key">优惠券</text><text class="mb-val">2张</text></view>
+					<view class="mb-stat"><text class="mb-key">优惠券</text><text class="mb-val">2</text><text class="mb-unit">张</text></view>
 					<view class="mb-sep"></view>
 					<view class="mb-stat"><text class="mb-key">积分</text><text class="mb-val">320</text></view>
 					<view class="mb-sep"></view>
-					<view class="mb-stat"><text class="mb-key">余额</text><text class="mb-val">8.5元</text></view>
+					<view class="mb-stat"><text class="mb-key">余额</text><text class="mb-val">8.5</text><text class="mb-unit">元</text></view>
 				</view>
 			</view>
 
@@ -65,7 +65,7 @@
 
 			<view class="grid-row">
 				<view class="g-item" hover-class="hv" @tap="comingSoon">
-					<uni-icons type="medal" size="27" color="#5A4F43"></uni-icons>
+					<uni-icons type="cart" size="27" color="#5A4F43"></uni-icons>
 					<text class="g-text">积分商城</text>
 				</view>
 				<view class="g-item" hover-class="hv" @tap="comingSoon">
@@ -84,8 +84,6 @@
 					<text class="g-text">储值有礼</text>
 				</view>
 			</view>
-
-			<text class="more-link" hover-class="hv" @tap="comingSoon">更多惊喜 ∨</text>
 
 			<view class="act-banner" hover-class="hv" @tap="comingSoon">
 				<view class="act-left">
@@ -140,6 +138,9 @@ import { DRINKS, LINES, STORE, genBanner } from '../../common/js/data.js'
 // 状态栏高度：海报轮播沉浸到状态栏之下
 const statusBarHeight = uni.getSystemInfoSync().statusBarHeight
 const bannerH = 700 + statusBarHeight * 2 + 'rpx'
+// 胶囊定位：海报文字从微信胶囊底部起排，避免被刘海/状态栏遮挡
+const menuBtn = uni.getMenuButtonBoundingClientRect ? uni.getMenuButtonBoundingClientRect() : null
+const contentTop = (menuBtn ? menuBtn.bottom + 12 : statusBarHeight + 54) + 'px'
 
 const store = STORE
 // 当前轮播页索引：驱动「海报滑入 → 文字依次入场 → 场景图压轴」的动效时序
@@ -468,6 +469,11 @@ page {
 	font-weight: bold;
 	color: #3d3229;
 }
+.mb-unit {
+	font-size: 21rpx;
+	color: #8c8177;
+	margin-left: 2rpx;
+}
 .mb-sep {
 	width: 2rpx;
 	height: 28rpx;
@@ -479,7 +485,7 @@ page {
 .dual-row {
 	display: flex;
 	align-items: stretch;
-	padding: 30rpx 0;
+	padding: 36rpx 0;
 	border-bottom: 2rpx solid #f5efe7;
 }
 .du-col {
@@ -490,21 +496,22 @@ page {
 	transition: transform 0.18s ease, opacity 0.18s ease;
 }
 .du-en {
-	font-size: 22rpx;
+	font-size: 24rpx;
 	color: #e5ddd0;
 	font-weight: bold;
-	letter-spacing: 5rpx;
+	letter-spacing: 6rpx;
 }
 .du-title {
-	margin-top: 2rpx;
-	font-size: 36rpx;
+	margin-top: 6rpx;
+	font-size: 44rpx;
 	font-weight: bold;
 	color: #3d3229;
+	letter-spacing: 2rpx;
 }
 .du-sub {
 	margin-top: 8rpx;
 	font-size: 22rpx;
-	color: #a89d90;
+	color: #8c8177;
 }
 .du-divider {
 	width: 2rpx;
@@ -515,7 +522,7 @@ page {
 /* 四宫格（裸线性图标，热项彩色圆） */
 .grid-row {
 	display: flex;
-	padding: 32rpx 0 8rpx;
+	padding: 36rpx 0 30rpx;
 }
 .g-item {
 	flex: 1;
@@ -546,7 +553,7 @@ page {
 	position: absolute;
 	top: -10rpx;
 	right: -20rpx;
-	font-size: 18rpx;
+	font-size: 20rpx;
 	line-height: 1;
 	padding: 6rpx 10rpx;
 	background: #ffffff;
@@ -558,14 +565,6 @@ page {
 	margin-top: 14rpx;
 	font-size: 24rpx;
 	color: #3d3229;
-}
-.more-link {
-	display: block;
-	text-align: center;
-	font-size: 24rpx;
-	color: #a89d90;
-	padding: 10rpx 0 24rpx;
-	transition: transform 0.18s ease, opacity 0.18s ease;
 }
 
 /* 活动条 */
@@ -596,9 +595,11 @@ page {
 	height: 56rpx;
 	line-height: 56rpx;
 	padding: 0 28rpx;
-	background: #8b5e3c;
+	background: linear-gradient(135deg, #f09a52 0%, #e8833a 100%);
+	box-shadow: 0 6rpx 16rpx rgba(232, 131, 58, 0.35);
 	color: #ffffff;
 	font-size: 24rpx;
+	font-weight: 500;
 	border-radius: 999rpx;
 	transition: transform 0.18s ease, opacity 0.18s ease;
 }
@@ -636,7 +637,7 @@ page {
 	flex-shrink: 0;
 	width: 216rpx;
 	height: 216rpx;
-	border-radius: 28rpx;
+	border-radius: 16rpx;
 	background: #f3eae0;
 }
 .rec-info {
@@ -686,16 +687,17 @@ page {
 	font-size: 24rpx;
 }
 .price-num {
-	font-size: 36rpx;
-	font-weight: 500;
+	font-size: 40rpx;
+	font-weight: bold;
 }
 .rec-btn {
 	height: 64rpx;
 	line-height: 64rpx;
 	padding: 0 32rpx;
-	background: #8b5e3c;
-	color: #ffffff;
+	background: #f6eee3;
+	color: #6f4a2f;
 	font-size: 26rpx;
+	font-weight: 500;
 	border-radius: 32rpx;
 	transition: transform 0.18s ease, opacity 0.18s ease;
 }
