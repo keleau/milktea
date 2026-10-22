@@ -65,22 +65,22 @@
 
 			<view class="grid-row">
 				<view class="g-item" hover-class="hv" @tap="comingSoon">
-					<uni-icons type="cart" size="27" color="#5A4F43"></uni-icons>
+					<uni-icons type="cart" size="22" color="#5A4F43"></uni-icons>
 					<text class="g-text">积分商城</text>
 				</view>
 				<view class="g-item" hover-class="hv" @tap="comingSoon">
-					<uni-icons type="gift" size="27" color="#5A4F43"></uni-icons>
+					<uni-icons type="gift" size="22" color="#5A4F43"></uni-icons>
 					<text class="g-text">进群有礼</text>
 				</view>
 				<view class="g-item" hover-class="hv" @tap="comingSoon">
 					<view class="g-hot">
-						<uni-icons type="vip" size="25" color="#FFFFFF"></uni-icons>
+						<uni-icons type="vip" size="20" color="#FFFFFF"></uni-icons>
 						<text class="g-badge">5.8折</text>
 					</view>
 					<text class="g-text">周二会员日</text>
 				</view>
 				<view class="g-item" hover-class="hv" @tap="comingSoon">
-					<uni-icons type="wallet" size="27" color="#5A4F43"></uni-icons>
+					<uni-icons type="wallet" size="22" color="#5A4F43"></uni-icons>
 					<text class="g-text">储值有礼</text>
 				</view>
 			</view>
@@ -160,7 +160,7 @@ const banners = [
 		big: ['新客', '9', '折 喝爆款'],
 		sub: '双杯 85 折 · 三杯 8 折',
 		btn: '点击领取',
-		bg: genBanner('warm creamy caramel milk tea swirl scene, silky milk waves in beige tones, two milk tea cups on wooden table on the right side, cozy dessert shop counter, soft morning light, empty copy space on the upper left'),
+		bg: genBanner('warm creamy caramel milk tea swirl scene, silky milk waves in beige tones, two cups on a wooden table, cozy dessert shop counter, soft morning light'),
 		link: 'menu'
 	},
 	{
@@ -170,7 +170,7 @@ const banners = [
 		big: ['爪价低至', '5.8', '折'],
 		sub: '银牌 5.8 · 金牌 5 · 黑金 4.5 折',
 		btn: '立即查看',
-		bg: genBanner('dark roasted brown sugar bubble milk tea cups with syrup drizzle on the right side, deep caramel tones, moody warm light, luxurious dark background, empty copy space on the upper left'),
+		bg: genBanner('dark roasted brown sugar bubble milk tea with glossy syrup drizzle, deep caramel tones, moody warm rim light, luxurious dark background'),
 		link: 'soon'
 	},
 	{
@@ -180,7 +180,7 @@ const banners = [
 		big: ['新品', '12', '元起'],
 		sub: '百香果 · 柠檬 · 青提 冷萃上新',
 		btn: '去尝鲜',
-		bg: genBanner('fresh fruit tea cups with passion fruit lemon slices and mint on the right side, bright airy pastel green background, summer refreshing vibe, empty copy space on the upper left'),
+		bg: genBanner('fresh fruit tea with passion fruit seeds, lemon slices and mint, bright airy pastel green background, summer refreshing vibe'),
 		link: 'menu'
 	}
 ]
@@ -427,7 +427,7 @@ page {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	height: 104rpx;
+	height: 84rpx;
 	border-bottom: 2rpx solid #f5efe7;
 }
 .mb-id {
@@ -435,19 +435,19 @@ page {
 	align-items: center;
 }
 .mb-badge {
-	width: 48rpx;
-	height: 48rpx;
-	line-height: 48rpx;
+	width: 42rpx;
+	height: 42rpx;
+	line-height: 42rpx;
 	text-align: center;
 	background: #8b5e3c;
 	color: #ffffff;
-	font-size: 21rpx;
+	font-size: 19rpx;
 	font-weight: bold;
-	border-radius: 13rpx 13rpx 13rpx 4rpx;
-	margin-right: 12rpx;
+	border-radius: 11rpx 11rpx 11rpx 4rpx;
+	margin-right: 10rpx;
 }
 .mb-level {
-	font-size: 28rpx;
+	font-size: 25rpx;
 	font-weight: 500;
 	color: #3d3229;
 }
@@ -460,32 +460,32 @@ page {
 	align-items: center;
 }
 .mb-key {
-	font-size: 24rpx;
+	font-size: 20rpx;
 	color: #8c8177;
-	margin-right: 8rpx;
+	margin-right: 6rpx;
 }
 .mb-val {
-	font-size: 26rpx;
+	font-size: 23rpx;
 	font-weight: bold;
 	color: #3d3229;
 }
 .mb-unit {
-	font-size: 21rpx;
+	font-size: 19rpx;
 	color: #8c8177;
 	margin-left: 2rpx;
 }
 .mb-sep {
 	width: 2rpx;
-	height: 28rpx;
+	height: 24rpx;
 	background: #f0e9e1;
-	margin: 0 20rpx;
+	margin: 0 16rpx;
 }
 
-/* 双列（益禾堂式：裸文本列 + 幽灵英文眉题） */
+/* 双列（益禾堂式：裸文本列 + 幽灵英文眉题）——页面主入口，放大做深度聚焦 */
 .dual-row {
 	display: flex;
 	align-items: stretch;
-	padding: 36rpx 0;
+	padding: 48rpx 0 44rpx;
 	border-bottom: 2rpx solid #f5efe7;
 }
 .du-col {
@@ -496,33 +496,33 @@ page {
 	transition: transform 0.18s ease, opacity 0.18s ease;
 }
 .du-en {
-	font-size: 24rpx;
-	color: #e5ddd0;
+	font-size: 27rpx;
+	color: #e0d6c6;
 	font-weight: bold;
-	letter-spacing: 6rpx;
+	letter-spacing: 8rpx;
 }
 .du-title {
-	margin-top: 6rpx;
-	font-size: 44rpx;
+	margin-top: 10rpx;
+	font-size: 58rpx;
 	font-weight: bold;
 	color: #3d3229;
-	letter-spacing: 2rpx;
+	letter-spacing: 3rpx;
 }
 .du-sub {
-	margin-top: 8rpx;
-	font-size: 22rpx;
+	margin-top: 12rpx;
+	font-size: 23rpx;
 	color: #8c8177;
 }
 .du-divider {
 	width: 2rpx;
 	background: #f5efe7;
-	margin: 8rpx 0;
+	margin: 10rpx 0;
 }
 
-/* 四宫格（裸线性图标，热项彩色圆） */
+/* 四宫格（裸线性图标，热项彩色圆）——弱化为辅助入口 */
 .grid-row {
 	display: flex;
-	padding: 36rpx 0 30rpx;
+	padding: 24rpx 0 20rpx;
 }
 .g-item {
 	flex: 1;
@@ -533,38 +533,38 @@ page {
 }
 .g-item > view,
 .g-item > .uni-icons {
-	height: 72rpx;
+	height: 56rpx;
 	display: flex;
 	align-items: center;
 	justify-content: center;
 }
 .g-hot {
 	position: relative;
-	width: 72rpx;
-	height: 72rpx;
+	width: 56rpx;
+	height: 56rpx;
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	background: #e8833a;
 	border-radius: 50%;
-	box-shadow: 0 6rpx 16rpx rgba(232, 131, 58, 0.35);
+	box-shadow: 0 4rpx 12rpx rgba(232, 131, 58, 0.28);
 }
 .g-badge {
 	position: absolute;
 	top: -10rpx;
-	right: -20rpx;
-	font-size: 20rpx;
+	right: -22rpx;
+	font-size: 17rpx;
 	line-height: 1;
-	padding: 6rpx 10rpx;
+	padding: 5rpx 9rpx;
 	background: #ffffff;
 	color: #e8833a;
 	border-radius: 999rpx;
 	border: 2rpx solid #fdeedd;
 }
 .g-text {
-	margin-top: 14rpx;
-	font-size: 24rpx;
-	color: #3d3229;
+	margin-top: 10rpx;
+	font-size: 21rpx;
+	color: #6f6357;
 }
 
 /* 活动条 */
@@ -574,31 +574,31 @@ page {
 	justify-content: space-between;
 	background: linear-gradient(96deg, #fdf0e0 0%, #f9e3c8 60%, #f6d9b8 100%);
 	border-radius: 24rpx;
-	padding: 24rpx 28rpx;
+	padding: 18rpx 24rpx;
 }
 .act-left {
 	display: flex;
 	flex-direction: column;
 }
 .act-t1 {
-	font-size: 28rpx;
+	font-size: 25rpx;
 	font-weight: bold;
 	color: #6f4a2f;
 }
 .act-t2 {
-	margin-top: 6rpx;
-	font-size: 22rpx;
+	margin-top: 4rpx;
+	font-size: 19rpx;
 	color: #a3856b;
 }
 .act-btn {
 	flex-shrink: 0;
-	height: 56rpx;
-	line-height: 56rpx;
-	padding: 0 28rpx;
+	height: 50rpx;
+	line-height: 50rpx;
+	padding: 0 22rpx;
 	background: linear-gradient(135deg, #f09a52 0%, #e8833a 100%);
-	box-shadow: 0 6rpx 16rpx rgba(232, 131, 58, 0.35);
+	box-shadow: 0 5rpx 12rpx rgba(232, 131, 58, 0.3);
 	color: #ffffff;
-	font-size: 24rpx;
+	font-size: 21rpx;
 	font-weight: 500;
 	border-radius: 999rpx;
 	transition: transform 0.18s ease, opacity 0.18s ease;

@@ -5,15 +5,29 @@
  */
 
 // 远程饮品图生成（Image Guidelines 唯一允许的图片源，URL 固定可被 CDN 缓存）
+// 风格锁定（见 design.md 11.1）：暖奶油底 + 柔和左上自然光 + 低饱和焦糖棕/橘色盘 + 无文字无 Logo
+const PHOTO_STYLE =
+	'Premium commercial beverage photography, warm cream seamless studio backdrop, soft diffused daylight from upper left, ' +
+	'gentle contact shadow, low-saturation caramel brown cream and burnt orange palette, 85mm lens, shallow depth of field, ' +
+	'minimal props, photorealistic, appetizing, ultra clean composition, no text, no letters, no logo, no people, no cartoon, no neon, '
+
 const genImg = (prompt) =>
 	'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=' +
-	encodeURIComponent('Commercial milk tea product photography, ' + prompt + ', single takeaway plastic cup, warm cream seamless background, soft studio lighting, centered composition, appetizing, realistic, high resolution') +
-	'&image_size=square'
+	encodeURIComponent(
+		PHOTO_STYLE + prompt +
+		', tall transparent takeaway cup with flat lid, centered composition, consistent brand photography style, high resolution'
+	) +
+	'&image_size=square_hd'
 
-// 远程 Banner 场景图生成（16:9 横幅，满版海报轮播用）
+// 远程 Banner 场景图生成（16:9 横幅，满版海报轮播用；主体统一靠右、左侧留给文字）
 const genBanner = (prompt) =>
 	'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=' +
-	encodeURIComponent('Commercial milk tea advertisement scene photography, ' + prompt + ', no text, no letters, soft studio lighting, realistic, high resolution') +
+	encodeURIComponent(
+		'Premium commercial milk tea campaign photography, warm cream and caramel palette with burnt orange accents, ' +
+		'soft diffused studio light, realistic, high resolution, no text, no letters, no logo, no people, no cartoon, ' +
+		prompt +
+		', cups and props clustered on the right side, clean empty copy space on the left, consistent brand campaign style'
+	) +
 	'&image_size=landscape_16_9'
 
 export { genBanner }

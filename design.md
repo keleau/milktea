@@ -130,25 +130,24 @@
    - **切换动效时序（精髓，强制）**：海报随 swiper 滑动落位 **之后** 才依次入场——kicker 0.50s → 标题 0.58s → 大数字 popIn（scale 0.86→1 回弹）0.68s → 副题 0.78s → CTA 0.86s（txtIn 0.36s ease）；场景图 0.95s 压轴 `translateX(64rpx)+scale(1.05→1)` 浮现（bgIn 0.6s ease-out）
    - 4800ms 自动轮播 + circular，640ms 切换，**无指示点/进度条**；文字块从胶囊底部起排（`getMenuButtonBoundingClientRect().bottom + 12px`，兜底 statusBarHeight+54px），避免刘海/状态栏遮挡；场景图未就绪时优雅降级为主题渐变底 + 文字
 2. **白色内容大板**（单张圆角卡 32rpx，上浮 -36rpx 压住 Banner，内边距 32rpx，行间 2rpx 发丝线 `#F5EFE7`）：
-   - **会员行**（高 104rpx）：左 V2 徽章（48rpx，右下直角）+「银牌猫评员」；右三组「标签 24rpx text-2 + 值 26rpx Bold + 单位 21rpx text-2 弱化」：优惠券 2 张 · 积分 320 · 余额 8.5 元
-   - **双列（大板视觉焦点，用户指定）**（益禾堂式裸文本列，无卡片底）：幽灵英文眉题（24rpx/800，`#E5DDD0`，字距 6rpx）+ 主标题 **44rpx Bold**（全板最大字号）+ 副题 22rpx；列间 2rpx 分隔线，行高 padding 36rpx
-   - **四宫格**（裸线性 uni-icons，size 27，`#5A4F43`，无圆底）：cart 积分商城 / gift 进群有礼 / vip 周二会员日（accent 橘实底圆 72rpx + 白 icon + 右上白底橘字「5.8折」角标 20rpx）/ wallet 储值有礼
-   - **活动条**（奶油渐变 `#FDF0E0→#F6D9B8`，圆角 24rpx，紧随四宫格，不再设「更多惊喜」行）：左侧两行文案 + 右侧胶囊按钮「立即抢购」**accent 橘渐变（#F09A52→#E8833A）+ 橘阴影——全板唯一强强调色块，形成视觉焦点**
+   - **会员行**（高 84rpx）：左 V2 徽章（42rpx，右下直角）+「银牌猫评员」25rpx；右三组「标签 20rpx text-2 + 值 23rpx Bold + 单位 19rpx text-2 弱化」：优惠券 2 张 · 积分 320 · 余额 8.5 元
+   - **双列（页面主入口 · 深度聚焦，用户指定）**（益禾堂式裸文本列，无卡片底）：幽灵英文眉题（27rpx/800，`#E0D6C6`，字距 8rpx）+ 主标题 **58rpx Bold**（全板最大字号）+ 副题 23rpx；列间 2rpx 分隔线，行高 padding 48rpx / 44rpx——放大到绝对主导，周边模块同步缩小，形成焦点层级
+   - **四宫格（弱化为辅助入口）**（裸线性 uni-icons，size 22，`#5A4F43`，无圆底）：cart 积分商城 / gift 进群有礼 / vip 周二会员日（accent 橘实底圆 56rpx + 白 icon + 右上白底橘字「5.8折」角标 17rpx）/ wallet 储值有礼
+   - **活动条**（奶油渐变 `#FDF0E0→#F6D9B8`，圆角 24rpx，padding 18rpx 24rpx）：左侧两行文案 25rpx/19rpx + 右侧胶囊按钮「立即抢购」50rpx 高（accent 橘渐变 #F09A52→#E8833A）
 3. **今日猫推荐**（大板下方奶油底区块，标题 32rpx + 「完整榜单 ›」）：纵向 3 款饮品卡（爪评分 5/4/4 拉开层次）：216rpx 方图（圆角 **16rpx，同心圆角 = 外 40 − 内距 24**）+ 名称 30rpx + 系列标签 + 爪评分（弱化焦糖色）+ 一句话描述 + 价格（accent **40rpx Bold，卡内第一视觉**）+「去点单」（64rpx 高浅底 `#F6EEE3` 棕字，弱于价格，不抢转化焦点）
 4. **底部 TabBar**：首页 / 点单 / 订单 / 我的（见第 8 章）
 
 ### 6.2 点单页（pages/menu/index，瑞幸式重构版，navigationStyle custom）
 - **顶栏**：自取 | 外卖 40rpx 大字切换（选中深棕，未选中灰棕，中间竖分隔线）+ 白圆底搜索按钮
-- **门店行**：star-filled 强调橘星标 + 店名 32rpx Bold 截断 + ›；下行 location 图标 + 距离 22rpx；右侧「拼单享优惠」圆角小徽（#F3EAE0 底棕字，右下直角 4rpx）
-- **优惠券胶囊条**：横滑白底描边胶囊（券名 + 门槛）+「点击查看 ∨」
-- **新客 banner**：奶油橘渐变（#FDEEDC→#F6CF9E）+ 棕底白字「新朋友专享」标签 + 42rpx/900「首单立减 3 元 · 第二杯半价」+ accent 橘渐变「立即领取」胶囊；右上左下两个装饰圆
-- **页签**：经典菜单 / 会员专享价（hot 款）/ 我的常点（5 爪款），选中 30rpx Bold 深棕 + 40×6rpx brand 下划条
-- **主体双栏**（page 100vh flex，仅双栏内滚动；**券条+banner 放在列表滚动区内随内容滚走，常驻头部只剩 自取|外卖切换+门店行+页签**，商品展示框最大化）：左侧 150rpx 分类栏（#F3EDE4 底：全部 + 四线 tag 名；选中白底加粗 + 左侧 6×36rpx accent 指示条；NEW/HOT 角标），右侧 scroll-view `scroll-into-view` 联动分节
-- **分节**：线名 27rpx Bold（线色）+ 线描述 20rpx；**商品卡**（白底 24rpx 圆角 + 阴影，点单主战场要大）：**176rpx 方图**（16rpx 圆角）+ 名称 29rpx Bold 单行 + 标签行（新品 accent 浅底 / 会员价 棕浅底 / 小爪评分）+ 描述单行灰 + 底部「¥ 价格 accent 40rpx Bold + 划线原价」+「**选规格**」accent 橘渐变胶囊 64rpx 高（点卡片其余区域进详情）
+- **门店行**：star-filled 强调橘星标 + 店名 29rpx Bold 截断 + ›；下行「距您 205m · 即将休息」20rpx + 绿色胶囊「当前 N 杯制作中」；右侧「拼单享优惠」圆角小徽（#F3EAE0 底棕字，右下直角 4rpx）
+- **优惠券胶囊条 / 新客 banner**：券包区常驻商品列表顶部（`sec-coupon`，优于分类过滤）；新客 banner 奶油橘渐变 + 棕底白字标签 + 大号文案 + 橘渐变「一键领取」；下方 2 张券票卡：左 ¥ 面额 + 虚线撕口 + 券名/说明 + 橘色「领取」
+- **页签（4 个）**：经典菜单 / 会员专享价 / 新品上市 / 我的常点，选中 28rpx Bold 深棕 + 40×6rpx brand 下划条
+- **主体双栏**（page 100vh flex，仅双栏内滚动；常驻头部只剩 自取|外卖切换 + 门店行 + 页签，商品展示框最大化）：左侧 **176rpx** 分类栏（#F3EDE4 底，9 项：券包特惠（默认，NEW）/ 全部饮品 / 醇厚系列 / 纯选系列 / 甜心系列 / 清爽系列 / 人气必喝（HOT）/ 新品上市 / 会员专享；选中白底加粗 + 左侧 6×36rpx accent 指示条；NEW/HOT 角标），右侧 scroll-view **连续分节滚动**：券包区常驻置顶（`sec-coupon`）→ 四条产品线分节 → 经典页签追加「人气必喝 / 新品上市 / 会员专享价」汇总节，一直滑到底都有商品；点左侧分类仅做 `scroll-into-view` 锚点跳转（`sec-<id>`），不重挂载列表，切页签才回顶
+- **分节**：线名 28rpx Bold（线色）+ 线描述 20rpx；**商品卡**（白底 22rpx 圆角 + 阴影，点单主战场要大）：**196rpx 方图**（18rpx 圆角）+ 名称 30rpx Bold 单行 + 标签行（新品 accent 浅底 / 会员价 棕浅底 / 小爪评分，可换行）+ 描述单行灰 + 底部「¥ 价格 accent 44rpx Bold + 划线原价」+「**选规格**」accent 橘渐变胶囊 74rpx 高（点卡片其余区域进详情）
 - **交互闭环（点单页内完成下单链路）**：
   - 点门店行 → **地图选店弹层**（底部上滑：CSS 风格化地图 + 3 家门店单选，选中即换显示的门店/距离）
   - 商品卡「选规格」→ **规格弹层**（82vh 底部上滑：线色渐变 hero 图 + 名称/线标/描述 + 可选糖·冰度单选 chips + 小料多选 chips（+¥）+ 数量步进器 + 底部「¥总价 划线原价」+ 规格摘要【冰·糖·小料】+「立即购买」描边 /「加入购物车」accent 渐变）
-  - 加入购物车 → **底部购物车栏**（深棕 999rpx 圆条：cart-filled 图标 + accent 数量角标 + 「预估 ¥x」+ 划线原价 + 右侧 accent「去结算」；有会员折扣时顶部奶油黄条「已享会员折扣，共减免 ¥x」）；去结算 = 逐项 saveOrder（mode 跟随自取/外卖）→ switchTab 订单列表
+  - 加入购物车 → **底部购物车栏**（深棕 999rpx 圆条 + 底部渐隐垫层，商品卡从其后淡出：cart-filled 图标 + accent 数量角标 + 「预估 ¥x」+ 划线原价 + 展开箭头 + 内嵌 capsule「去结算」；有会员折扣时上方居中奶油黄小标签「已享会员折扣，共减免 ¥x」）；**点条左侧即展开已选明细**（白卡浮于购物车条上方，逐项显示 图 / 名称 / 冰·糖·小料 / 小计 / ×数量 + 「删除」，逐项删空自动收起，轻遮罩点外部收起）；去结算 = 逐项 saveOrder（mode 跟随自取/外卖）→ switchTab 订单列表
   - 分类栏 NEW/HOT 角标数据驱动（线内含 isNew / hot 款时显示）；热门款卡价带划线原价 `orig`
 - 顶栏门店/券条/banner 为静态头部，点击均为 comingSoon 占位
 
@@ -257,6 +256,107 @@
 - 数据：`common/js/data.js`（产品线、饮品、选项、订单 storage 读写、`genImg`/`genBanner` 远程图工厂）
 - 样式 Token：`uni.scss` 中 `$vp-*` 变量，页面样式内联于 SFC `<style>`
 - 静态资源：`static/resource/images/`，小写 + 下划线；**仅保留被引用资源**（tab 图标 8 张、avatar.jpg、share 弹层 3 张），模板遗留图已清理
-- 饮品图：远程 `text_to_image` URL（`...&image_size=square`）；Banner 场景图：`...&image_size=landscape_16_9`（prompt 带 `no text`），禁止大图入包
+- 饮品图：远程 `text_to_image` URL（`...&image_size=square_hd`）；Banner 场景图：`...&image_size=landscape_16_9`，提示词统一由第 11 章风格库生成，禁止大图入包
 - 本地订单：`uni.storage` key `milk_orders`（数组，`out_trade_no` 唯一）
 - 分支命名：`feature/cat-theme`；提交信息：`feat: 四猫茶学园首页改版` 格式
+
+## 11. 图像生成提示词库（Image Prompt Library）
+
+> 全部走 `https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=...&image_size=...`，远程 URL 不进包体。
+> 提示词分两条轨：**摄影轨**（饮品、海报）与**极简矢量插图轨**（空态、纹理、品牌图形）。两轨共用同一色盘，禁止混用。
+
+### 11.1 风格锁定（Style Lock）
+
+**摄影轨 · 统一前置**（已内置于 `data.js` 的 `PHOTO_STYLE`，勿逐张改写）：
+
+```text
+Premium commercial beverage photography, warm cream seamless studio backdrop, soft diffused daylight from upper left,
+gentle contact shadow, low-saturation caramel brown cream and burnt orange palette, 85mm lens, shallow depth of field,
+minimal props, photorealistic, appetizing, ultra clean composition, no text, no letters, no logo, no people, no cartoon, no neon
+```
+
+**摄影轨 · 统一尾部**：`tall transparent takeaway cup with flat lid, centered composition, consistent brand photography style, high resolution`
+
+**海报轨 · 统一前置**：
+
+```text
+Premium commercial milk tea campaign photography, warm cream and caramel palette with burnt orange accents,
+soft diffused studio light, realistic, high resolution, no text, no letters, no logo, no people, no cartoon
+```
+
+**海报轨 · 统一尾部**：`cups and props clustered on the right side, clean empty copy space on the left, consistent brand campaign style`
+
+**插图轨 · 统一前置**：
+
+```text
+Minimal flat vector illustration, warm cream background (#FAF6F0), thin 2px monoline strokes in warm brown (#8B5E3C)
+with burnt orange (#E8833A) accent shapes, geometric, generous negative space, subtle paper grain,
+centered composition, no text, no letters, no logo, no mascot, no cartoon cat character, no 3D, no gradient mesh, no neon
+```
+
+**全局禁用**：文字/字母/水印/价格标签、卡通猫角色、拟人猫、手绘纹理、霓虹荧光色、冷白光、紫调、3D 渲染、强反光、杂乱道具。猫元素只允许**爪印图形**（品牌边界见第 2 章）。
+
+### 11.2 尺寸与参数矩阵（"大小"规范）
+
+| 用途 | 页面显示 | 比例 | `image_size` | 建议 |
+|---|---|---|---|---|
+| 饮品图（详情头图 / 卡片共用同一 URL） | 详情头图 750×750rpx；卡图 120–216rpx | 1:1 | `square_hd` | 一张图复用全部场景，高处取清晰度；单图 < 400KB |
+| 首页满版海报 | 750rpx × ≈700rpx（近半屏） | 16:9 | `landscape_16_9` | `aspectFill` 裁切，主体必须靠右，左侧留白放文字 |
+| 订单/优惠券空态插图 | 320rpx 方形容器 | 1:1 | `square` | 线稿+负空间，缩小后仍可辨 |
+| 排行榜头图 | 750×360rpx | 4:3 | `landscape_4_3` | 横向插画，不抢榜卡信息 |
+| 会员卡底色纹理 | 750×400rpx | 4:3 | `landscape_4_3` | 低对比同色系，不能有视觉焦点 |
+| 分享卡封面 | 5:4 分享卡 | 4:3 | `landscape_4_3` | 品牌几何图形居中，安全区内构图 |
+| 产品线封面（4 张，可选） | 750×280rpx | 1:1 | `square` | 各用系列主色做点缀，其余保持奶油底 |
+
+### 11.3 饮品图（12 张 · `square_hd`）
+
+在统一前置 + 尾部之间替换下列主体描述（英文，SDXL 写法：主体 → 细节 → 材质）：
+
+| # | 饮品 | 主体描述（拼进 `genImg`） |
+|---|---|---|
+| 1 | 黑糖波波厚奶茶 | `one cup of brown sugar boba milk tea, glossy dark syrup streaks on the inner wall, dense tapioca pearls at the bottom, thick milk layer and foam cap, wooden coaster` |
+| 2 | 经典原味厚乳奶茶 | `one cup of classic hong kong style milk tea, silky uniform tan brown color, clean cup wall, tiny condensation droplets, minimal styling` |
+| 3 | 提拉米苏厚乳茶 | `one cup of tiramisu milk tea, cocoa dusted cream foam cap, layered coffee and milk body, a small tiramisu cube garnish on the side` |
+| 4 | 茉莉初雪轻乳茶 | `one cup of jasmine green milk tea, pale golden tea body, thin white milk foam layer, three jasmine petals on the lid` |
+| 5 | 四季春原叶纯茶 | `one cup of clear amber oolong tea with ice cubes, no milk, translucent tea body, fresh tea leaves beside the cup` |
+| 6 | 轻乳乌龙茶 | `one cup of light oolong milk tea, soft beige two-tone layers, gentle milk swirl, minimal foam` |
+| 7 | 布丁可可萌宠杯 | `one cup of chocolate milk, whole caramel pudding at the bottom, creamy cocoa layers, cocoa powder dusting on the foam` |
+| 8 | 芋泥啵啵鲜奶茶 | `one cup of taro milk tea, purple taro paste smeared on the inner wall, chewy taro balls, white milk layer on top` |
+| 9 | 草莓芝士奶盖 | `one cup of strawberry milk tea, pink strawberry puree at the bottom, thick white cheese foam cap, one fresh strawberry beside the cup` |
+| 10 | 满杯百香果茶 | `one cup of passion fruit tea, bright orange yellow body, visible passion fruit seeds, crushed ice, half a passion fruit beside the cup` |
+| 11 | 手打香水柠檬茶 | `one cup of smashed lemon green tea, bright green yellow body, crushed lemon slices and mint leaves, ice cubes` |
+| 12 | 冷萃乌龙青提茶 | `one cup of cold brew oolong tea with green grapes, light jade green body, halved green grapes and ice cubes` |
+
+### 11.4 首页海报（3 张 · `landscape_16_9`）
+
+只替换海报轨主体段，构图（右主体/左留白）由统一尾部保证：
+
+| 主题 | 主体描述 |
+|---|---|
+| 新客专享（light） | `warm creamy caramel milk tea swirl scene, silky milk waves in beige tones, two cups on a wooden table, cozy dessert shop counter, soft morning light` |
+| 会员日（dark） | `dark roasted brown sugar bubble milk tea with glossy syrup drizzle, deep caramel tones, moody warm rim light, luxurious dark background` |
+| 果茶季（fresh） | `fresh fruit tea with passion fruit seeds, lemon slices and mint, bright airy pastel green background, summer refreshing vibe` |
+
+### 11.5 插图（极简矢量 · 无猫角色 · 前置用 11.1 的插图轨统一前置）
+
+| 用途 | `image_size` | 主体描述 |
+|---|---|---|
+| 订单空态 | `square` | `a single line-art takeaway cup with three rising steam curls shaped like paw prints, two small orange dots as boba at the base, a soft cream circle behind the cup, lots of empty space around` |
+| 优惠券空态 | `square` | `a line-art paper coupon with a paw-shaped notch on the right edge, a dashed tear line, one burnt orange star seal at the corner` |
+| 排行榜头图 | `landscape_4_3` | `three geometric podiums in warm brown line art, a paw-print emblem on the tallest center podium, soft orange tea waves as a band along the bottom, wide empty space above` |
+| 会员卡纹理 | `landscape_4_3` | `seamless subtle pattern of tiny paw prints and tea cup outlines, tone-on-tone warm cream and light caramel, very low contrast, generous spacing, no focal point` |
+| 分享卡封面 | `landscape_4_3` | `geometric brand mark of a paw print merged with a milk tea cup silhouette, thin brown monoline, one burnt orange arc behind, cream background, centered` |
+| 产品线封面 · 醇厚 | `square` | `abstract thick milk wave, flowing warm brown rounded shapes, one rich caramel swirl` |
+| 产品线封面 · 纯选 | `square` | `abstract minimal tea leaf, clean single line, soft grey brown tone, one pale gold accent dot` |
+| 产品线封面 · 甜心 | `square` | `abstract pudding dome with a caramel drizzle line, soft pink accent shape, rounded geometry` |
+| 产品线封面 · 清爽 | `square` | `abstract citrus slice, thin radial lines, fresh green accent, one mint leaf outline` |
+
+### 11.6 生成与体积注意
+
+1. 所有提示词必须 `encodeURIComponent`；文中代码块的换行仅为排版，实际拼接为**单行**，中文不出现在 prompt 里（命名仅作为文件/注释）。
+2. 接口**不支持 negative prompt**，"no text / no logo / no cartoon" 必须写进正向提示词（已内置）。
+3. URL 固定 → 结果被 CDN 缓存：**改提示词 = 换图**，上线后不要反复微调措辞。
+4. 单图控制在 400KB 以内；小卡片与详情页共用同一 URL，靠尺寸参数一次生成、多处复用。
+5. 生成服务排队时返回固定占位图（约 176KB），页面须保留底色/渐变兜底，不得出现空白破图。
+6. 禁止把生成图下载进 `static/`——会直接增大主包，且无法享受 CDN。
+

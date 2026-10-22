@@ -1,14 +1,16 @@
 <template>
 	<view class="page">
-		<!-- ① 顶栏：自取 | 外卖 + 搜索（压缩高度，给列表让空间） -->
-		<view class="topbar" :style="{ paddingTop: safeTop }">
+		<!-- ① 顶栏：自取 | 外卖 + 搜索（右侧留给微信胶囊） -->
+		<view class="topbar" :style="{ paddingTop: safeTop, paddingRight: capPad + 'px' }">
 			<view class="mode">
 				<text class="mode-t" :class="{ on: mode === '自取' }" @tap="mode = '自取'">自取</text>
 				<view class="mode-div"></view>
 				<text class="mode-t" :class="{ on: mode === '外卖' }" @tap="mode = '外卖'">外卖</text>
 			</view>
-			<view class="tb-search" hover-class="hv" @tap="onSearch">
-				<uni-icons type="search" size="20" color="#3d3229"></uni-icons>
+			<view class="tb-actions">
+				<view class="tb-search" hover-class="hv" @tap="onSearch">
+					<uni-icons type="search" size="20" color="#3d3229"></uni-icons>
+				</view>
 			</view>
 		</view>
 
@@ -20,9 +22,14 @@
 					<text class="st-title">{{ selStore.name }}</text>
 					<text class="st-arrow">›</text>
 				</view>
-				<view class="st-dist">
-					<uni-icons type="location" size="13" color="#8C8177"></uni-icons>
-					<text class="st-dist-t">{{ selStore.area }} · {{ selStore.dist }}</text>
+				<view class="st-meta">
+					<text class="st-dist-t">距您 205m</text>
+					<text class="st-dot">·</text>
+					<text class="st-status">即将休息</text>
+					<view class="st-live">
+						<view class="st-live-dot"></view>
+						<text class="st-live-t">当前 {{ makingCups }} 杯制作中</text>
+					</view>
 				</view>
 			</view>
 			<view class="st-badge">
@@ -39,7 +46,7 @@
 				class="mt-tab"
 				:class="{ on: tabId === tb.id }"
 				hover-class="hv"
-				@tap="tabId = tb.id"
+				@tap="pickTab(tb.id)"
 			>
 				<text class="mt-t">{{ tb.name }}</text>
 				<view class="mt-bar"></view>
@@ -50,12 +57,12 @@
 		<view class="content">
 			<scroll-view scroll-y class="sidebar">
 				<view
-					v-for="sb in sideList"
+					v-for="sb in categories"
 					:key="sb.id"
 					class="sb-item"
 					:class="{ on: sideId === sb.id }"
 					hover-class="hv"
-					@tap="sideId = sb.id"
+					@tap="pickCategory(sb.id)"
 				>
 					<view class="sb-ind"></view>
 					<text class="sb-t">{{ sb.name }}</text>
@@ -63,68 +70,105 @@
 				</view>
 			</scroll-view>
 
-			<scroll-view scroll-y class="plist" :scroll-into-view="'sec-' + sideId" scroll-with-animation>
-				<view id="sec-all"></view>
-				<!-- 券条随列表滚动（普通 flex 行，避免 scroll-x 嵌套 scroll-y 撑宽内容） -->
-				<view class="coupon-strip">
-					<view class="cs-inner">
-						<view class="cs-pill" v-for="cp in coupons" :key="cp.id" hover-class="hv" @tap="onCoupon">
-							<text class="cs-t">{{ cp.title }} {{ cp.desc }}</text>
-						</view>
-						<view class="cs-pill" hover-class="hv" @tap="onCoupon">
-							<text class="cs-t">周二会员日 全场5.8折</text>
-						</view>
-					</view>
-					<view class="cs-more" hover-class="hv" @tap="onCoupon">
-						<text class="cs-more-t">点击查看</text>
-						<text class="cs-more-a">∨</text>
-					</view>
-				</view>
-				<view class="promo-banner">
-					<view class="pb-deco pb-d1"></view>
-					<view class="pb-deco pb-d2"></view>
-					<view class="pb-left">
-						<text class="pb-tag">新朋友专享</text>
-						<view class="pb-title"><text class="pb-big">首单立减 3 元</text><text class="pb-sub2">第二杯半价</text></view>
-						<view class="pb-btn" hover-class="hv" @tap="onCoupon">立即领取</view>
-					</view>
-				</view>
-				<view class="no-drink" v-if="!sections.length">这个分区暂时没有饮品，看看别的吧</view>
-				<view class="sec" v-for="sec in sections" :key="sec.id" :id="'sec-' + sec.id">
-					<view class="sec-head">
-						<text class="sec-name" :style="{ color: sec.color }">{{ sec.name }}</text>
-						<text class="sec-desc">{{ sec.desc }}</text>
-					</view>
-					<view class="p-card" v-for="dk in sec.drinks" :key="dk.id" hover-class="hv" @tap="toDetail(dk.id)">
-						<image class="p-img" :src="dk.img" mode="aspectFill"></image>
-						<view class="p-body">
-							<text class="p-name">{{ dk.name }}</text>
-							<view class="p-tags">
-								<text class="p-tag p-new" v-if="dk.isNew">新品</text>
-								<text class="p-tag p-hot" v-if="dk.hot">会员价</text>
-								<paws :score="dk.paws" :size="22"></paws>
+			<!-- 连续分节滚动：券包置顶 + 全部分节，点左侧分类用锚点跳转（:key 仅跟随页签，切页签回顶） -->
+			<scroll-view scroll-y class="plist" :key="tabId" :scroll-into-view="scrollInto" scroll-with-animation>
+				<!-- 内层定宽：JS 按屏宽算出像素宽度写死，杜绝滚动内容层被撑宽（750rpx − 侧栏176 = 574rpx） -->
+				<view class="plist-in" :style="{ width: listW + 'px' }">
+					<!-- 券包特惠：新客 banner + 券包列表 -->
+					<view id="sec-coupon">
+						<view class="promo-banner">
+							<view class="pb-deco pb-d1"></view>
+							<view class="pb-deco pb-d2"></view>
+							<view class="pb-left">
+								<text class="pb-tag">新朋友专享</text>
+								<view class="pb-title"><text class="pb-big">首单立减 3 元</text></view>
+								<text class="pb-sub2">第二杯半价 · 券包每周三更新</text>
+								<view class="pb-btn" hover-class="hv" @tap="onCoupon">一键领取</view>
 							</view>
-							<text class="p-desc">{{ dk.desc }}</text>
-							<view class="p-bottom">
-								<view class="p-price">
-									<text class="p-sym">¥</text>
-									<text class="p-num">{{ dk.price }}</text>
-									<text class="p-orig" v-if="dk.orig">¥{{ dk.orig }}</text>
+						</view>
+						<view class="cp-head">
+							<text class="cp-h-t">可领券包</text>
+							<text class="cp-h-s">{{ coupons.length }} 张待领取</text>
+						</view>
+						<view class="cp-card" v-for="cp in coupons" :key="cp.id" hover-class="hv" @tap="onCoupon">
+							<view class="cp-cut">
+								<view class="cp-amt">
+									<text class="cp-sym">¥</text>
+									<text class="cp-num">{{ cp.cut }}</text>
 								</view>
-								<view class="p-buy" hover-class="hv" @tap.stop="openSpec(dk)">选规格</view>
+								<text class="cp-min">满{{ cp.min }}可用</text>
+							</view>
+							<view class="cp-notch cp-n1"></view>
+							<view class="cp-notch cp-n2"></view>
+							<view class="cp-mid">
+								<text class="cp-title">{{ cp.title }}</text>
+								<text class="cp-desc">{{ cp.desc }} · 点单自动抵扣</text>
+							</view>
+							<view class="cp-btn" hover-class="hv" @tap.stop="onCoupon">领取</view>
+						</view>
+					</view>
+
+					<!-- 商品分节（连续滚动，一直滑到底都有商品） -->
+					<view class="sec" v-for="sec in sections" :key="sec.id" :id="'sec-' + sec.id">
+						<view class="sec-head">
+							<text class="sec-name" :style="{ color: sec.color }">{{ sec.name }}</text>
+							<text class="sec-desc">{{ sec.desc }}</text>
+						</view>
+						<view class="p-card" v-for="dk in sec.drinks" :key="dk.id" hover-class="hv" @tap="toDetail(dk.id)">
+							<image class="p-img" :src="dk.img" mode="aspectFill"></image>
+							<view class="p-body">
+								<text class="p-name">{{ dk.name }}</text>
+								<view class="p-tags">
+									<text class="p-tag p-new" v-if="dk.isNew">新品</text>
+									<text class="p-tag p-hot" v-if="dk.orig">会员价</text>
+									<paws :score="dk.paws" :size="20"></paws>
+								</view>
+								<text class="p-desc">{{ dk.desc }}</text>
+								<view class="p-bottom">
+									<view class="p-price">
+										<text class="p-sym">¥</text>
+										<text class="p-num">{{ dk.price }}</text>
+										<text class="p-orig" v-if="dk.orig">¥{{ dk.orig }}</text>
+									</view>
+									<view class="p-buy" hover-class="hv" @tap.stop="openSpec(dk)">选规格</view>
+								</view>
 							</view>
 						</view>
 					</view>
+					<view class="no-drink" v-if="!sections.length">这个分区暂时没有饮品，看看别的吧</view>
+					<view class="list-pad" :class="{ withCart: cartCount }"></view>
 				</view>
-				<view class="list-pad"></view>
 			</scroll-view>
 		</view>
 
-		<!-- ⑦ 购物车栏（加购后出现） -->
+		<!-- ⑦ 购物车栏：点左侧展开已选明细，可逐项删除 -->
+		<view class="mask cart-mask" v-if="cartOpen" @tap="cartOpen = false"></view>
 		<view class="cart-wrap" v-if="cartCount">
-			<view class="cart-save" v-if="cartSave">已享会员折扣，共减免 ¥{{ cartSave }}</view>
-			<view class="cart-bar" :class="{ flat: cartSave }">
-				<view class="cb-left" @tap="cartPeek">
+			<view class="cart-panel" v-if="cartOpen">
+				<view class="cpn-head">
+					<text class="cpn-t">已选 {{ cartCount }} 件</text>
+					<text class="cpn-s">可逐项删除</text>
+				</view>
+				<scroll-view scroll-y class="cpn-list">
+					<view class="cpn-item" v-for="(it, i) in cart" :key="i">
+						<image class="cpn-img" :src="it.drink.img" mode="aspectFill"></image>
+						<view class="cpn-mid">
+							<text class="cpn-name">{{ it.drink.name }}</text>
+							<text class="cpn-spec">{{ itemSpec(it) }}</text>
+						</view>
+						<view class="cpn-right">
+							<text class="cpn-price">¥{{ (it.drink.price + it.topTotal) * it.count }}</text>
+							<text class="cpn-count">×{{ it.count }}</text>
+						</view>
+						<view class="cpn-del" hover-class="hv" @tap.stop="removeItem(i)">删除</view>
+					</view>
+				</scroll-view>
+			</view>
+			<view class="cart-tip" v-if="cartSave">
+				<text class="cart-save">已享会员折扣，共减免 ¥{{ cartSave }}</text>
+			</view>
+			<view class="cart-bar">
+				<view class="cb-left" @tap="toggleCart">
 					<view class="cb-icon">
 						<uni-icons type="cart-filled" size="24" color="#fff7ec"></uni-icons>
 						<view class="cb-badge">{{ cartCount }}</view>
@@ -135,6 +179,7 @@
 						<text class="cb-num">{{ cartTotal }}</text>
 						<text class="cb-orig" v-if="cartSave">¥{{ cartTotal + cartSave }}</text>
 					</view>
+					<view class="cb-chev" :class="{ open: cartOpen }"></view>
 				</view>
 				<view class="cb-go" hover-class="hv" @tap="checkout">去结算</view>
 			</view>
@@ -190,6 +235,7 @@
 				<text class="sp-desc">{{ specDrink.desc }}</text>
 			</view>
 			<scroll-view scroll-y class="sp-opts">
+				<view :style="{ width: sys.windowWidth + 'px' }">
 				<view class="sp-group">
 					<text class="sp-gtitle">可选糖<text class="sp-gsub">（必选1份）</text></text>
 					<view class="sp-chips">
@@ -229,6 +275,7 @@
 						>{{ tp.name }} +{{ tp.price }}</view>
 					</view>
 				</view>
+				</view>
 			</scroll-view>
 			<view class="sp-foot">
 				<view class="sp-price-row">
@@ -263,18 +310,36 @@ const sugarOpts = SUGAR_OPTS
 const toppings = TOPPINGS
 
 // 沉浸式顶栏
-const statusBarHeight = uni.getSystemInfoSync().statusBarHeight
+const sys = uni.getSystemInfoSync()
+const statusBarHeight = sys.statusBarHeight
 const safeTop = statusBarHeight + 4 + 'px'
+// 右侧给微信原生胶囊（···|⊙）留位，避免搜索按钮被压住
+let capPad = 24
+try {
+	const menu = uni.getMenuButtonBoundingClientRect && uni.getMenuButtonBoundingClientRect()
+	if (menu && menu.width) capPad = sys.windowWidth - menu.left + 6
+} catch (e) {}
+// 列表定宽（px）：屏宽 × 574/750，物理防止滚动内容层溢出（750 − 侧栏176 = 574rpx）
+const listW = Math.floor(sys.windowWidth * 574 / 750)
 
 const mode = ref('自取')
 const tabId = ref('classic')
-const sideId = ref('all')
+const sideId = ref('coupon')
+const scrollInto = ref('')
+const makingCups = 4
 
 const tabs = [
 	{ id: 'classic', name: '经典菜单' },
 	{ id: 'member', name: '会员专享价' },
+	{ id: 'new', name: '新品上市' },
 	{ id: 'mine', name: '我的常点' }
 ]
+
+const pickTab = (id) => {
+	tabId.value = id
+	sideId.value = 'all'
+	scrollInto.value = ''
+}
 
 // 门店（点门店行 → 地图选店弹层切换）
 const stores = [
@@ -290,26 +355,67 @@ const pickStore = (st) => {
 	storePick.value = false
 }
 
-// 页签候选池：经典=全部；会员专享价=hot；我的常点=5爪
+// 页签候选池：经典=全部；会员专享价=有会员价；新品=isNew；我的常点=5爪
 const tabDrinks = computed(() => {
-	if (tabId.value === 'member') return DRINKS.filter(d => d.hot)
+	if (tabId.value === 'member') return DRINKS.filter(d => d.orig)
+	if (tabId.value === 'new') return DRINKS.filter(d => d.isNew)
 	if (tabId.value === 'mine') return DRINKS.filter(d => d.paws === 5)
 	return DRINKS
 })
 
-// 分类栏：带 NEW / HOT 角标（数据驱动：线内含新品/人气款）
-const sideList = computed(() => [{ id: 'all', name: '全部' }].concat(LINES.map(l => ({
-	id: l.id,
-	name: l.tag,
-	isNew: tabDrinks.value.some(d => d.line === l.id && d.isNew),
-	isHot: tabDrinks.value.some(d => d.line === l.id && d.hot)
-}))))
+// 左侧 9 个分类（券包特惠置顶，NEW/HOT 角标数据驱动）
+const categories = computed(() => {
+	const pool = tabDrinks.value
+	const lineCats = LINES.map(l => ({
+		id: l.id,
+		name: l.tag + '系列',
+		isNew: pool.some(d => d.line === l.id && d.isNew),
+		isHot: pool.some(d => d.line === l.id && d.hot)
+	}))
+	return [
+		{ id: 'coupon', name: '券包特惠', isNew: true },
+		{ id: 'all', name: '全部饮品' }
+	].concat(lineCats, [
+		{ id: 'hot', name: '人气必喝', isHot: true },
+		{ id: 'new', name: '新品上市' },
+		{ id: 'member', name: '会员专享', isHot: true }
+	])
+})
+
+const pickCategory = (id) => {
+	sideId.value = id
+	// 重置后再设值，保证重复点同一分类也能重新跳转
+	scrollInto.value = ''
+	setTimeout(() => {
+		scrollInto.value = id === 'all' ? (sections.value[0] ? 'sec-' + sections.value[0].id : 'sec-coupon') : 'sec-' + id
+	}, 20)
+}
+
+const EXTRA_SEC = {
+	hot: { name: '人气必喝', desc: '大家都在点的招牌', color: '#E8833A' },
+	new: { name: '新品上市', desc: '本周新上架', color: '#E8833A' },
+	member: { name: '会员专享价', desc: '会员直降，不限单', color: '#8B5E3C' }
+}
+
+// 连续分节：四个产品线常驻 + 经典页签追加人气/新品/会员汇总节，一直滑到底都有商品
+const sections = computed(() => {
+	const pool = tabDrinks.value
+	const list = LINES.map(l => ({
+		...l,
+		name: l.tag + '系列',
+		drinks: pool.filter(d => d.line === l.id)
+	})).filter(s => s.drinks.length)
+	if (tabId.value !== 'classic') return list
+	const extra = ['hot', 'new', 'member'].map(k => {
+		const drinks = k === 'hot' ? pool.filter(d => d.hot)
+			: k === 'new' ? pool.filter(d => d.isNew)
+			: pool.filter(d => d.orig)
+		return { id: k, ...EXTRA_SEC[k], drinks }
+	}).filter(s => s.drinks.length)
+	return list.concat(extra)
+})
 
 // 按产品线分节，空节隐藏
-const sections = computed(() =>
-	LINES.map(l => ({ ...l, drinks: tabDrinks.value.filter(d => d.line === l.id) })).filter(s => s.drinks.length)
-)
-
 const lineOf = (id) => LINES.find(l => l.id === id)
 
 // ===== 规格弹层 =====
@@ -361,6 +467,13 @@ const buyNow = () => {
 	closeSpec()
 	uni.switchTab({ url: '/pages/order/index' })
 }
+const cartOpen = ref(false)
+const toggleCart = () => { cartOpen.value = !cartOpen.value }
+const itemSpec = (it) => [it.ice, it.sugar].concat(it.tops).join('·')
+const removeItem = (i) => {
+	cart.value.splice(i, 1)
+	if (!cart.value.length) cartOpen.value = false
+}
 const checkout = () => {
 	if (!cart.value.length) return
 	cart.value.forEach(it => saveOrder({
@@ -369,10 +482,8 @@ const checkout = () => {
 		count: it.count, mode: mode.value
 	}))
 	cart.value = []
+	cartOpen.value = false
 	uni.switchTab({ url: '/pages/order/index' })
-}
-const cartPeek = () => {
-	uni.showToast({ title: '购物车明细即将上线', icon: 'none' })
 }
 
 const toDetail = (id) => {
@@ -402,6 +513,7 @@ const onCoupon = () => {
 .topbar {
 	display: flex;
 	align-items: center;
+	justify-content: space-between;
 	padding: 4px 24rpx 4rpx;
 }
 .mode {
@@ -423,8 +535,11 @@ const onCoupon = () => {
 	background: #ddd2c5;
 	margin: 0 20rpx;
 }
+.tb-actions {
+	display: flex;
+	align-items: center;
+}
 .tb-search {
-	margin-left: 22rpx;
 	width: 54rpx;
 	height: 54rpx;
 	border-radius: 50%;
@@ -442,35 +557,71 @@ const onCoupon = () => {
 	justify-content: space-between;
 	padding: 4rpx 24rpx 6rpx;
 }
+.st-left {
+	flex: 1;
+	min-width: 0;
+}
 .st-name {
 	display: flex;
 	align-items: center;
+	min-width: 0;
 }
 .st-title {
+	flex: 1;
+	min-width: 0;
 	margin: 0 6rpx 0 8rpx;
 	font-size: 29rpx;
 	font-weight: bold;
 	color: #3d3229;
-	max-width: 430rpx;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 .st-arrow {
+	flex-shrink: 0;
 	font-size: 28rpx;
 	color: #8c8177;
 }
-.st-dist {
+.st-meta {
 	display: flex;
 	align-items: center;
-	margin-top: 2rpx;
+	margin-top: 4rpx;
 }
 .st-dist-t {
-	margin-left: 4rpx;
 	font-size: 20rpx;
 	color: #8c8177;
 }
+.st-dot {
+	margin: 0 8rpx;
+	font-size: 20rpx;
+	color: #c9c0b7;
+}
+.st-status {
+	font-size: 20rpx;
+	color: #8c8177;
+}
+.st-live {
+	display: flex;
+	align-items: center;
+	margin-left: 12rpx;
+	padding: 2rpx 10rpx;
+	border-radius: 999rpx;
+	background: #eaf3ec;
+}
+.st-live-dot {
+	width: 8rpx;
+	height: 8rpx;
+	border-radius: 50%;
+	background: #5c9e6e;
+	margin-right: 6rpx;
+}
+.st-live-t {
+	font-size: 18rpx;
+	color: #5c9e6e;
+}
 .st-badge {
+	flex-shrink: 0;
+	margin-left: 16rpx;
 	display: flex;
 	flex-direction: column;
 	align-items: center;
@@ -491,53 +642,116 @@ const onCoupon = () => {
 	margin-top: 2rpx;
 }
 
-/* ③ 优惠券胶囊条（随列表滚动） */
-.coupon-strip {
+/* ③ 券包卡（券包特惠分类） */
+.cp-head {
+	display: flex;
+	align-items: baseline;
+	padding: 20rpx 4rpx 12rpx;
+	margin: 0 16rpx;
+}
+.cp-h-t {
+	font-size: 27rpx;
+	font-weight: bold;
+	color: #3d3229;
+}
+.cp-h-s {
+	margin-left: 12rpx;
+	font-size: 20rpx;
+	color: #b7ab9e;
+}
+.cp-card {
+	position: relative;
 	display: flex;
 	align-items: center;
-	padding: 10rpx 0 0;
+	background: #ffffff;
+	border-radius: 22rpx;
+	padding: 20rpx;
+	margin: 0 16rpx 16rpx;
+	box-shadow: 0 8rpx 24rpx rgba(61, 50, 41, 0.06);
+	overflow: hidden;
 }
-.cs-inner {
+.cp-cut {
+	flex-shrink: 0;
+	width: 144rpx;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	border-right: 2rpx dashed #eadfcd;
+}
+.cp-amt {
+	display: flex;
+	align-items: baseline;
+	color: #e8833a;
+}
+.cp-sym {
+	font-size: 24rpx;
+	font-weight: bold;
+}
+.cp-num {
+	font-size: 56rpx;
+	font-weight: 900;
+	line-height: 1;
+}
+.cp-min {
+	margin-top: 6rpx;
+	font-size: 18rpx;
+	color: #b7ab9e;
+}
+.cp-notch {
+	position: absolute;
+	left: 133rpx;
+	width: 22rpx;
+	height: 22rpx;
+	border-radius: 50%;
+	background: #faf6f0;
+}
+.cp-n1 {
+	top: -11rpx;
+}
+.cp-n2 {
+	bottom: -11rpx;
+}
+.cp-mid {
 	flex: 1;
 	min-width: 0;
-	display: flex;
-	gap: 10rpx;
-	overflow: hidden;
+	padding: 0 16rpx;
 }
-.cs-pill {
-	flex-shrink: 1;
-	min-width: 0;
+.cp-title {
+	display: block;
+	font-size: 27rpx;
+	font-weight: bold;
+	color: #3d3229;
 	overflow: hidden;
-	padding: 6rpx 16rpx;
-	background: #ffffff;
-	border: 2rpx solid #eadfcd;
-	border-radius: 999rpx;
-	font-size: 20rpx;
-	color: #6f4a2f;
-	white-space: nowrap;
 	text-overflow: ellipsis;
+	white-space: nowrap;
 }
-.cs-more {
+.cp-desc {
+	display: block;
+	margin-top: 6rpx;
+	font-size: 19rpx;
+	color: #8c8177;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.cp-btn {
 	flex-shrink: 0;
-	display: flex;
-	align-items: center;
-	margin-left: 10rpx;
-}
-.cs-more-t {
-	font-size: 20rpx;
-	color: #8c8177;
-}
-.cs-more-a {
-	font-size: 17rpx;
-	color: #8c8177;
-	margin-left: 2rpx;
+	height: 56rpx;
+	line-height: 56rpx;
+	padding: 0 24rpx;
+	border-radius: 999rpx;
+	background: linear-gradient(135deg, #f09a52 0%, #e8833a 100%);
+	box-shadow: 0 4rpx 12rpx rgba(232, 131, 58, 0.3);
+	color: #ffffff;
+	font-size: 22rpx;
+	font-weight: 500;
 }
 
 /* ④ 新客 banner（随列表滚动） */
 .promo-banner {
 	position: relative;
-	margin: 16rpx 0 6rpx;
-	padding: 18rpx 26rpx;
+	margin: 16rpx 16rpx 6rpx;
+	padding: 18rpx 22rpx;
 	border-radius: 22rpx;
 	background: linear-gradient(120deg, #fdeedc 0%, #f9dcb8 58%, #f6cf9e 100%);
 	overflow: hidden;
@@ -583,9 +797,9 @@ const onCoupon = () => {
 	letter-spacing: 1rpx;
 }
 .pb-sub2 {
-	margin-left: 14rpx;
-	font-size: 24rpx;
-	font-weight: bold;
+	display: block;
+	margin-top: 6rpx;
+	font-size: 20rpx;
 	color: #8b5e3c;
 }
 .pb-btn {
@@ -641,18 +855,19 @@ const onCoupon = () => {
 	display: flex;
 }
 .sidebar {
-	width: 150rpx;
+	width: 176rpx;
 	height: 100%;
 	background: #f3ede4;
 	flex-shrink: 0;
 }
 .sb-item {
 	position: relative;
-	padding: 26rpx 8rpx 26rpx 24rpx;
+	padding: 28rpx 10rpx 28rpx 26rpx;
 	transition: background 0.18s ease;
 }
 .sb-t {
 	font-size: 25rpx;
+	line-height: 1.3;
 	color: #8c8177;
 }
 .sb-item.on {
@@ -678,12 +893,12 @@ const onCoupon = () => {
 }
 .sb-badge {
 	position: absolute;
-	top: 6rpx;
-	right: 10rpx;
-	font-size: 16rpx;
+	top: 4rpx;
+	right: 6rpx;
+	font-size: 15rpx;
 	font-weight: bold;
 	line-height: 1;
-	padding: 3rpx 8rpx;
+	padding: 3rpx 7rpx;
 	border-radius: 6rpx 6rpx 6rpx 0;
 	color: #ffffff;
 }
@@ -697,10 +912,10 @@ const onCoupon = () => {
 .plist {
 	flex: 1;
 	height: 100%;
-	padding: 0 20rpx;
-	box-sizing: border-box;
+	/* 不给 scroll-view 横向 padding：小程序里会被 100% 宽的子内容顶掉导致溢出裁切，间距全部用子元素 margin 实现 */
 }
 .no-drink {
+	margin: 0 20rpx;
 	padding: 60rpx 0;
 	text-align: center;
 	font-size: 24rpx;
@@ -709,10 +924,11 @@ const onCoupon = () => {
 .sec-head {
 	display: flex;
 	align-items: baseline;
-	padding: 26rpx 4rpx 16rpx;
+	padding: 22rpx 4rpx 14rpx;
+	margin: 0 12rpx;
 }
 .sec-name {
-	font-size: 27rpx;
+	font-size: 28rpx;
 	font-weight: bold;
 }
 .sec-desc {
@@ -723,27 +939,27 @@ const onCoupon = () => {
 .p-card {
 	display: flex;
 	background: #ffffff;
-	border-radius: 24rpx;
-	padding: 20rpx;
-	margin-bottom: 20rpx;
+	border-radius: 22rpx;
+	padding: 22rpx;
+	margin: 0 16rpx 18rpx;
 	box-shadow: 0 8rpx 24rpx rgba(61, 50, 41, 0.06);
 }
 .p-img {
 	flex-shrink: 0;
-	width: 176rpx;
-	height: 176rpx;
-	border-radius: 16rpx;
+	width: 196rpx;
+	height: 196rpx;
+	border-radius: 18rpx;
 	background: #f3eae0;
 }
 .p-body {
 	flex: 1;
 	min-width: 0;
-	margin-left: 20rpx;
+	margin-left: 18rpx;
 	display: flex;
 	flex-direction: column;
 }
 .p-name {
-	font-size: 29rpx;
+	font-size: 30rpx;
 	font-weight: bold;
 	color: #3d3229;
 	overflow: hidden;
@@ -753,6 +969,8 @@ const onCoupon = () => {
 .p-tags {
 	display: flex;
 	align-items: center;
+	flex-wrap: wrap;
+	row-gap: 6rpx;
 	margin-top: 8rpx;
 }
 .p-tag {
@@ -794,7 +1012,7 @@ const onCoupon = () => {
 	font-weight: bold;
 }
 .p-num {
-	font-size: 40rpx;
+	font-size: 44rpx;
 	font-weight: bold;
 }
 .p-orig {
@@ -805,57 +1023,171 @@ const onCoupon = () => {
 }
 .p-buy {
 	flex-shrink: 0;
-	height: 64rpx;
-	line-height: 64rpx;
-	padding: 0 32rpx;
+	height: 74rpx;
+	line-height: 74rpx;
+	padding: 0 28rpx;
 	border-radius: 999rpx;
 	background: linear-gradient(135deg, #f09a52 0%, #e8833a 100%);
 	box-shadow: 0 6rpx 14rpx rgba(232, 131, 58, 0.3);
 	color: #ffffff;
-	font-size: 25rpx;
+	font-size: 26rpx;
 	font-weight: 500;
 }
 
-/* ⑦ 购物车栏 */
+/* ⑦ 购物车栏：底部渐隐垫层，商品卡从后面淡出，不再露出被截断的半截卡片 */
 .cart-wrap {
 	position: fixed;
-	left: 24rpx;
-	right: 24rpx;
-	bottom: 24rpx;
+	left: 0;
+	right: 0;
+	bottom: 0;
 	z-index: 60;
+	padding: 20rpx 24rpx 24rpx;
+	background: linear-gradient(180deg, rgba(250, 246, 240, 0) 0%, rgba(250, 246, 240, 0.94) 40%, #faf6f0 100%);
+}
+/* 明细展开时的轻遮罩：压暗列表，购物车条仍可点收起 */
+.mask.cart-mask {
+	z-index: 55;
+	background: rgba(30, 24, 18, 0.38);
+}
+.cart-tip {
+	text-align: center;
+	margin-bottom: 12rpx;
 }
 .cart-save {
-	background: #fdf3dd;
-	color: #8b5e3c;
-	font-size: 21rpx;
-	text-align: center;
-	padding: 10rpx 0;
-	border-radius: 16rpx 16rpx 0 0;
+	display: inline-block;
+	padding: 6rpx 22rpx;
+	border-radius: 999rpx;
+	background: #f7ecd9;
+	color: #9a7a5c;
+	font-size: 20rpx;
+	line-height: 1.5;
+}
+.cb-chev {
+	width: 14rpx;
+	height: 14rpx;
+	margin-left: 16rpx;
+	border-left: 3rpx solid #a99c8f;
+	border-top: 3rpx solid #a99c8f;
+	transform: rotate(45deg) translateY(3rpx);
+	transition: transform 0.2s ease;
+}
+.cb-chev.open {
+	transform: rotate(225deg) translateY(3rpx);
+}
+/* 展开的已选明细：白卡浮在购物车条上方 */
+.cart-panel {
+	margin-bottom: 14rpx;
+	padding: 24rpx 24rpx 8rpx;
+	background: #ffffff;
+	border-radius: 28rpx;
+	box-shadow: 0 8rpx 28rpx rgba(61, 50, 41, 0.1);
+	animation: slideUp 0.22s ease both;
+}
+.cpn-head {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	padding: 0 4rpx 16rpx;
+	border-bottom: 2rpx solid #f5efe7;
+}
+.cpn-t {
+	font-size: 26rpx;
+	font-weight: bold;
+	color: #3d3229;
+}
+.cpn-s {
+	font-size: 20rpx;
+	color: #a99c8f;
+}
+.cpn-list {
+	max-height: 480rpx;
+}
+.cpn-item {
+	display: flex;
+	align-items: center;
+	padding: 20rpx 0;
+	border-bottom: 2rpx solid #f7f2ea;
+}
+.cpn-item:last-child {
+	border-bottom: none;
+}
+.cpn-img {
+	flex-shrink: 0;
+	width: 84rpx;
+	height: 84rpx;
+	border-radius: 18rpx;
+	background: #f3ece2;
+}
+.cpn-mid {
+	flex: 1;
+	min-width: 0;
+	margin-left: 18rpx;
+	display: flex;
+	flex-direction: column;
+}
+.cpn-name {
+	font-size: 26rpx;
+	font-weight: 500;
+	color: #3d3229;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+.cpn-spec {
+	margin-top: 6rpx;
+	font-size: 20rpx;
+	color: #a99c8f;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+.cpn-right {
+	flex-shrink: 0;
+	margin-left: 14rpx;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-end;
+}
+.cpn-price {
+	font-size: 26rpx;
+	font-weight: bold;
+	color: #e8833a;
+}
+.cpn-count {
+	margin-top: 4rpx;
+	font-size: 20rpx;
+	color: #a99c8f;
+}
+.cpn-del {
+	flex-shrink: 0;
+	margin-left: 18rpx;
+	padding: 8rpx 18rpx;
+	border-radius: 999rpx;
+	border: 2rpx solid #eee7de;
+	font-size: 20rpx;
+	color: #a99c8f;
 }
 .cart-bar {
 	display: flex;
 	align-items: center;
-	height: 96rpx;
+	height: 100rpx;
+	padding-left: 10rpx;
 	border-radius: 999rpx;
-	background: #3d3229;
-	box-shadow: 0 12rpx 32rpx rgba(61, 50, 41, 0.35);
-	overflow: hidden;
-}
-.cart-bar.flat {
-	border-radius: 0 0 999rpx 999rpx;
+	background: linear-gradient(135deg, #4a3b2e 0%, #332a22 100%);
+	box-shadow: 0 10rpx 26rpx rgba(61, 50, 41, 0.18);
 }
 .cb-left {
 	flex: 1;
 	display: flex;
 	align-items: center;
-	padding-left: 28rpx;
+	padding-left: 12rpx;
 }
 .cb-icon {
 	position: relative;
-	width: 72rpx;
-	height: 72rpx;
+	width: 68rpx;
+	height: 68rpx;
 	border-radius: 50%;
-	background: #574a3f;
+	background: rgba(255, 247, 236, 0.12);
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -878,12 +1210,12 @@ const onCoupon = () => {
 .cb-price {
 	display: flex;
 	align-items: baseline;
-	margin-left: 20rpx;
+	margin-left: 18rpx;
 	color: #fff7ec;
 }
 .cb-pre {
 	font-size: 20rpx;
-	color: #b7ab9e;
+	color: #a99c8f;
 	margin-right: 6rpx;
 }
 .cb-sym {
@@ -891,24 +1223,27 @@ const onCoupon = () => {
 	font-weight: bold;
 }
 .cb-num {
-	font-size: 38rpx;
+	font-size: 36rpx;
 	font-weight: bold;
 }
 .cb-orig {
 	margin-left: 10rpx;
 	font-size: 20rpx;
-	color: #8c8177;
+	color: #857769;
 	text-decoration: line-through;
 }
 .cb-go {
 	flex-shrink: 0;
-	height: 96rpx;
-	line-height: 96rpx;
-	padding: 0 44rpx;
+	height: 80rpx;
+	line-height: 80rpx;
+	margin: 10rpx;
+	padding: 0 40rpx;
+	border-radius: 999rpx;
 	background: linear-gradient(135deg, #f09a52 0%, #e8833a 100%);
+	box-shadow: 0 6rpx 14rpx rgba(232, 131, 58, 0.28);
 	color: #ffffff;
-	font-size: 28rpx;
-	font-weight: bold;
+	font-size: 27rpx;
+	font-weight: 600;
 }
 
 /* 弹层通用 */
@@ -1147,11 +1482,11 @@ const onCoupon = () => {
 .sp-opts {
 	flex: 1;
 	min-height: 0;
-	padding: 0 32rpx;
-	box-sizing: border-box;
+	/* 同 plist：scroll-view 不加横向 padding，间距用子元素 margin */
 }
 .sp-group {
 	padding: 18rpx 0 4rpx;
+	margin: 0 32rpx;
 }
 .sp-gtitle {
 	display: block;
@@ -1256,6 +1591,9 @@ const onCoupon = () => {
 	font-weight: bold;
 }
 .list-pad {
-	height: 170rpx;
+	height: 60rpx;
+}
+.list-pad.withCart {
+	height: 250rpx;
 }
 </style>
