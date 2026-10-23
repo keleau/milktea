@@ -296,6 +296,7 @@ const scrollInto = ref('')
 // 双向联动：记录列表滚动位置、各分节相对内容顶部的偏移
 const scrollTop = ref(0)
 let secTops = []
+let listViewH = 0
 let linkLock = 0
 const makingCups = 4
 
@@ -401,6 +402,7 @@ const measureSecTops = () => {
 			const listRect = res && res[0]
 			const rects = (res && res[1]) || []
 			if (!listRect || !rects.length) return
+			listViewH = listRect.height
 			const ids = ['sec-coupon'].concat(sections.value.map((sec) => 'sec-' + sec.id))
 			const base = scrollTop.value
 			secTops = rects.map((rect, index) => ({
@@ -412,10 +414,17 @@ const measureSecTops = () => {
 }
 
 const onListScroll = (e) => {
-	scrollTop.value = e.detail.scrollTop
+	const detail = e.detail
+	scrollTop.value = detail.scrollTop
 	if (Date.now() < linkLock || !secTops.length) return
+	// 到底兜底：末尾分节顶不到判定线，滚到底部直接高亮最后一节
+	if (detail.scrollHeight && detail.scrollTop + listViewH >= detail.scrollHeight - 2) {
+		const lastId = secTops[secTops.length - 1].id.replace('sec-', '')
+		if (lastId && lastId !== sideId.value) sideId.value = lastId
+		return
+	}
 	// 分节顶部落过这个线，就判定为当前分节（提前 60px，滑到标题附近即切换）
-	const line = scrollTop.value + 60
+	const line = detail.scrollTop + 60
 	let currentId = secTops[0].id
 	secTops.forEach((item) => {
 		if (item.top <= line) currentId = item.id
@@ -424,14 +433,20 @@ const onListScroll = (e) => {
 	if (id && id !== sideId.value) sideId.value = id
 }
 
-onMounted(measureSecTops)
+// 图片撑开/异步渲染后位置会变，延迟再量一次
+const remeasure = () => {
+	measureSecTops()
+	setTimeout(measureSecTops, 350)
+}
+
+onMounted(remeasure)
 // 切页签：列表重挂载并回到顶部，重新量取分节位置
 watch(tabId, () => {
 	scrollTop.value = 0
-	measureSecTops()
+	remeasure()
 })
 // 分节数量变化（页签过滤结果不同）时也要重算
-watch(() => sections.value.map((sec) => sec.id).join(','), measureSecTops)
+watch(() => sections.value.map((sec) => sec.id).join(','), remeasure)
 
 // 按产品线分节，空节隐藏
 const lineOf = (id) => LINES.find(l => l.id === id)
