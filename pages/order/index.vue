@@ -55,9 +55,9 @@
 <script setup>
 import { ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
-import { getOrders } from '../../common/js/data.js'
+import { getOrders } from '@/common/data'
+import { takeOrdersFilter } from '@/common/store/session'
 
-const app = getApp()
 const tabs = [
 	{ id: '', name: '全部' },
 	{ id: '待支付', name: '待支付' },
@@ -71,8 +71,7 @@ const list = ref([])
 
 onShow(() => {
 	// 与“我的”页订单入口联动
-	filt.value = app.globalData.orders_filt
-	app.globalData.orders_filt = ''
+	filt.value = takeOrdersFilter()
 	loadList()
 })
 

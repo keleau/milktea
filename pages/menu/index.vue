@@ -55,27 +55,14 @@
 
 		<!-- ⑥ 左侧分类 + 右侧商品列表 -->
 		<view class="content">
-			<scroll-view scroll-y class="sidebar">
-				<view
-					v-for="sb in categories"
-					:key="sb.id"
-					class="sb-item"
-					:class="{ on: sideId === sb.id }"
-					hover-class="hv"
-					@tap="pickCategory(sb.id)"
-				>
-					<view class="sb-ind"></view>
-					<text class="sb-t">{{ sb.name }}</text>
-					<text class="sb-badge" :class="sb.isHot ? 'sb-hot' : 'sb-new'" v-if="sb.isHot || sb.isNew">{{ sb.isHot ? 'HOT' : 'NEW' }}</text>
-				</view>
-			</scroll-view>
+			<category-rail :items="categories" :active="sideId" @pick="pickCategory" />
 
 			<!-- 连续分节滚动：券包置顶 + 全部分节，点左侧分类用锚点跳转（:key 仅跟随页签，切页签回顶） -->
-			<scroll-view scroll-y class="plist" :key="tabId" :scroll-into-view="scrollInto" scroll-with-animation>
+			<scroll-view scroll-y class="plist" :key="tabId" :scroll-into-view="scrollInto" scroll-with-animation @scroll="onListScroll">
 				<!-- 内层定宽：JS 按屏宽算出像素宽度写死，杜绝滚动内容层被撑宽（750rpx − 侧栏176 = 574rpx） -->
 				<view class="plist-in" :style="{ width: listW + 'px' }">
 					<!-- 券包特惠：新客 banner + 券包列表 -->
-					<view id="sec-coupon">
+					<view id="sec-coupon" class="js-sec">
 						<view class="promo-banner">
 							<view class="pb-deco pb-d1"></view>
 							<view class="pb-deco pb-d2"></view>
@@ -90,50 +77,27 @@
 							<text class="cp-h-t">可领券包</text>
 							<text class="cp-h-s">{{ coupons.length }} 张待领取</text>
 						</view>
-						<view class="cp-card" v-for="cp in coupons" :key="cp.id" hover-class="hv" @tap="onCoupon">
-							<view class="cp-cut">
-								<view class="cp-amt">
-									<text class="cp-sym">¥</text>
-									<text class="cp-num">{{ cp.cut }}</text>
-								</view>
-								<text class="cp-min">满{{ cp.min }}可用</text>
-							</view>
-							<view class="cp-notch cp-n1"></view>
-							<view class="cp-notch cp-n2"></view>
-							<view class="cp-mid">
-								<text class="cp-title">{{ cp.title }}</text>
-								<text class="cp-desc">{{ cp.desc }} · 点单自动抵扣</text>
-							</view>
-							<view class="cp-btn" hover-class="hv" @tap.stop="onCoupon">领取</view>
-						</view>
+						<coupon-ticket
+							v-for="cp in coupons"
+							:key="cp.id"
+							:coupon="cp"
+							@claim="onCoupon"
+						/>
 					</view>
 
 					<!-- 商品分节（连续滚动，一直滑到底都有商品） -->
-					<view class="sec" v-for="sec in sections" :key="sec.id" :id="'sec-' + sec.id">
+					<view class="sec js-sec" v-for="sec in sections" :key="sec.id" :id="'sec-' + sec.id">
 						<view class="sec-head">
 							<text class="sec-name" :style="{ color: sec.color }">{{ sec.name }}</text>
 							<text class="sec-desc">{{ sec.desc }}</text>
 						</view>
-						<view class="p-card" v-for="dk in sec.drinks" :key="dk.id" hover-class="hv" @tap="toDetail(dk.id)">
-							<image class="p-img" :src="dk.img" mode="aspectFill"></image>
-							<view class="p-body">
-								<text class="p-name">{{ dk.name }}</text>
-								<view class="p-tags">
-									<text class="p-tag p-new" v-if="dk.isNew">新品</text>
-									<text class="p-tag p-hot" v-if="dk.orig">会员价</text>
-									<paws :score="dk.paws" :size="20"></paws>
-								</view>
-								<text class="p-desc">{{ dk.desc }}</text>
-								<view class="p-bottom">
-									<view class="p-price">
-										<text class="p-sym">¥</text>
-										<text class="p-num">{{ dk.price }}</text>
-										<text class="p-orig" v-if="dk.orig">¥{{ dk.orig }}</text>
-									</view>
-									<view class="p-buy" hover-class="hv" @tap.stop="openSpec(dk)">选规格</view>
-								</view>
-							</view>
-						</view>
+						<product-card
+							v-for="dk in sec.drinks"
+							:key="dk.id"
+							:drink="dk"
+							@detail="toDetail"
+							@spec="openSpec"
+						/>
 					</view>
 					<view class="no-drink" v-if="!sections.length">这个分区暂时没有饮品，看看别的吧</view>
 					<view class="list-pad" :class="{ withCart: cartCount }"></view>
@@ -301,8 +265,11 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
-import { DRINKS, LINES, STORE, COUPONS, ICE_OPTS, SUGAR_OPTS, TOPPINGS, saveOrder } from '../../common/js/data.js'
+import { ref, computed, nextTick, onMounted, getCurrentInstance, watch } from 'vue'
+import { DRINKS, LINES, STORE, COUPONS, ICE_OPTS, SUGAR_OPTS, TOPPINGS, saveOrder } from '@/common/data'
+import ProductCard from '@/components/menu/product-card.vue'
+import CouponTicket from '@/components/menu/coupon-ticket.vue'
+import CategoryRail from '@/components/menu/category-rail.vue'
 
 const coupons = COUPONS
 const iceOpts = ICE_OPTS
@@ -326,6 +293,10 @@ const mode = ref('自取')
 const tabId = ref('classic')
 const sideId = ref('coupon')
 const scrollInto = ref('')
+// 双向联动：记录列表滚动位置、各分节相对内容顶部的偏移
+const scrollTop = ref(0)
+let secTops = []
+let linkLock = 0
 const makingCups = 4
 
 const tabs = [
@@ -384,6 +355,8 @@ const categories = computed(() => {
 
 const pickCategory = (id) => {
 	sideId.value = id
+	// 跳转动画期间锁定反写，避免滚动事件把高亮抢回上一个分类
+	linkLock = Date.now() + 600
 	// 重置后再设值，保证重复点同一分类也能重新跳转
 	scrollInto.value = ''
 	setTimeout(() => {
@@ -414,6 +387,51 @@ const sections = computed(() => {
 	}).filter(s => s.drinks.length)
 	return list.concat(extra)
 })
+
+// ── 滚动联动：列表滑到哪里，左侧分类就跟到哪里 ──
+const pageIns = getCurrentInstance()
+
+// 量取每个分节（含券包区）相对内容顶部的偏移，滚动时据此判定当前分节
+const measureSecTops = () => {
+	nextTick(() => {
+		const query = uni.createSelectorQuery().in(pageIns && pageIns.proxy)
+		query.select('.plist').boundingClientRect()
+		query.selectAll('.js-sec').boundingClientRect()
+		query.exec((res) => {
+			const listRect = res && res[0]
+			const rects = (res && res[1]) || []
+			if (!listRect || !rects.length) return
+			const ids = ['sec-coupon'].concat(sections.value.map((sec) => 'sec-' + sec.id))
+			const base = scrollTop.value
+			secTops = rects.map((rect, index) => ({
+				id: ids[index] || '',
+				top: rect.top - listRect.top + base
+			}))
+		})
+	})
+}
+
+const onListScroll = (e) => {
+	scrollTop.value = e.detail.scrollTop
+	if (Date.now() < linkLock || !secTops.length) return
+	// 分节顶部落过这个线，就判定为当前分节（提前 60px，滑到标题附近即切换）
+	const line = scrollTop.value + 60
+	let currentId = secTops[0].id
+	secTops.forEach((item) => {
+		if (item.top <= line) currentId = item.id
+	})
+	const id = currentId.replace('sec-', '')
+	if (id && id !== sideId.value) sideId.value = id
+}
+
+onMounted(measureSecTops)
+// 切页签：列表重挂载并回到顶部，重新量取分节位置
+watch(tabId, () => {
+	scrollTop.value = 0
+	measureSecTops()
+})
+// 分节数量变化（页签过滤结果不同）时也要重算
+watch(() => sections.value.map((sec) => sec.id).join(','), measureSecTops)
 
 // 按产品线分节，空节隐藏
 const lineOf = (id) => LINES.find(l => l.id === id)
@@ -659,93 +677,7 @@ const onCoupon = () => {
 	font-size: 20rpx;
 	color: #b7ab9e;
 }
-.cp-card {
-	position: relative;
-	display: flex;
-	align-items: center;
-	background: #ffffff;
-	border-radius: 22rpx;
-	padding: 20rpx;
-	margin: 0 16rpx 16rpx;
-	box-shadow: 0 8rpx 24rpx rgba(61, 50, 41, 0.06);
-	overflow: hidden;
-}
-.cp-cut {
-	flex-shrink: 0;
-	width: 144rpx;
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	border-right: 2rpx dashed #eadfcd;
-}
-.cp-amt {
-	display: flex;
-	align-items: baseline;
-	color: #e8833a;
-}
-.cp-sym {
-	font-size: 24rpx;
-	font-weight: bold;
-}
-.cp-num {
-	font-size: 56rpx;
-	font-weight: 900;
-	line-height: 1;
-}
-.cp-min {
-	margin-top: 6rpx;
-	font-size: 18rpx;
-	color: #b7ab9e;
-}
-.cp-notch {
-	position: absolute;
-	left: 133rpx;
-	width: 22rpx;
-	height: 22rpx;
-	border-radius: 50%;
-	background: #faf6f0;
-}
-.cp-n1 {
-	top: -11rpx;
-}
-.cp-n2 {
-	bottom: -11rpx;
-}
-.cp-mid {
-	flex: 1;
-	min-width: 0;
-	padding: 0 16rpx;
-}
-.cp-title {
-	display: block;
-	font-size: 27rpx;
-	font-weight: bold;
-	color: #3d3229;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-.cp-desc {
-	display: block;
-	margin-top: 6rpx;
-	font-size: 19rpx;
-	color: #8c8177;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-.cp-btn {
-	flex-shrink: 0;
-	height: 56rpx;
-	line-height: 56rpx;
-	padding: 0 24rpx;
-	border-radius: 999rpx;
-	background: linear-gradient(135deg, #f09a52 0%, #e8833a 100%);
-	box-shadow: 0 4rpx 12rpx rgba(232, 131, 58, 0.3);
-	color: #ffffff;
-	font-size: 22rpx;
-	font-weight: 500;
-}
+/* 券包卡片样式见 components/menu/coupon-ticket.vue */
 
 /* ④ 新客 banner（随列表滚动） */
 .promo-banner {
@@ -854,60 +786,7 @@ const onCoupon = () => {
 	min-height: 0;
 	display: flex;
 }
-.sidebar {
-	width: 176rpx;
-	height: 100%;
-	background: #f3ede4;
-	flex-shrink: 0;
-}
-.sb-item {
-	position: relative;
-	padding: 28rpx 10rpx 28rpx 26rpx;
-	transition: background 0.18s ease;
-}
-.sb-t {
-	font-size: 25rpx;
-	line-height: 1.3;
-	color: #8c8177;
-}
-.sb-item.on {
-	background: #faf6f0;
-}
-.sb-item.on .sb-t {
-	font-weight: bold;
-	color: #3d3229;
-}
-.sb-ind {
-	position: absolute;
-	left: 0;
-	top: 50%;
-	transform: translateY(-50%);
-	width: 6rpx;
-	height: 0;
-	border-radius: 3rpx;
-	background: #e8833a;
-	transition: height 0.18s ease;
-}
-.sb-item.on .sb-ind {
-	height: 36rpx;
-}
-.sb-badge {
-	position: absolute;
-	top: 4rpx;
-	right: 6rpx;
-	font-size: 15rpx;
-	font-weight: bold;
-	line-height: 1;
-	padding: 3rpx 7rpx;
-	border-radius: 6rpx 6rpx 6rpx 0;
-	color: #ffffff;
-}
-.sb-new {
-	background: #e8833a;
-}
-.sb-hot {
-	background: #8b5e3c;
-}
+/* 左侧分类样式见 components/menu/category-rail.vue */
 
 .plist {
 	flex: 1;
@@ -936,72 +815,7 @@ const onCoupon = () => {
 	font-size: 20rpx;
 	color: #b7ab9e;
 }
-.p-card {
-	display: flex;
-	background: #ffffff;
-	border-radius: 22rpx;
-	padding: 22rpx;
-	margin: 0 16rpx 18rpx;
-	box-shadow: 0 8rpx 24rpx rgba(61, 50, 41, 0.06);
-}
-.p-img {
-	flex-shrink: 0;
-	width: 196rpx;
-	height: 196rpx;
-	border-radius: 18rpx;
-	background: #f3eae0;
-}
-.p-body {
-	flex: 1;
-	min-width: 0;
-	margin-left: 18rpx;
-	display: flex;
-	flex-direction: column;
-}
-.p-name {
-	font-size: 30rpx;
-	font-weight: bold;
-	color: #3d3229;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-.p-tags {
-	display: flex;
-	align-items: center;
-	flex-wrap: wrap;
-	row-gap: 6rpx;
-	margin-top: 8rpx;
-}
-.p-tag {
-	flex-shrink: 0;
-	margin-right: 10rpx;
-	padding: 3rpx 14rpx;
-	border-radius: 6rpx;
-	font-size: 19rpx;
-}
-.p-new {
-	color: #e8833a;
-	background: #fdeedd;
-}
-.p-hot {
-	color: #8b5e3c;
-	background: #f3eae0;
-}
-.p-desc {
-	margin-top: 8rpx;
-	font-size: 22rpx;
-	color: #8c8177;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-.p-bottom {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	margin-top: auto;
-}
+/* 商品卡布局见 components/menu/product-card.vue，价格样式下方保留给规格弹层复用 */
 .p-price {
 	display: flex;
 	align-items: baseline;
@@ -1020,18 +834,6 @@ const onCoupon = () => {
 	font-size: 21rpx;
 	color: #b7ab9e;
 	text-decoration: line-through;
-}
-.p-buy {
-	flex-shrink: 0;
-	height: 74rpx;
-	line-height: 74rpx;
-	padding: 0 28rpx;
-	border-radius: 999rpx;
-	background: linear-gradient(135deg, #f09a52 0%, #e8833a 100%);
-	box-shadow: 0 6rpx 14rpx rgba(232, 131, 58, 0.3);
-	color: #ffffff;
-	font-size: 26rpx;
-	font-weight: 500;
 }
 
 /* ⑦ 购物车栏：底部渐隐垫层，商品卡从后面淡出，不再露出被截断的半截卡片 */

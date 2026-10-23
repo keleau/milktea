@@ -57,7 +57,7 @@
 
 <script setup>
 import { computed } from 'vue'
-import { DRINKS, LINES } from '../../common/js/data.js'
+import { DRINKS, LINES } from '@/common/data'
 
 const lineOf = (id) => LINES.find(l => l.id === id)
 const ranked = computed(() => [...DRINKS].sort((a, b) => b.paws - a.paws || Number(b.hot) - Number(a.hot)))

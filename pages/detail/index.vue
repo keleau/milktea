@@ -96,9 +96,9 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import { DRINKS, LINES, ICE_OPTS, SUGAR_OPTS, TOPPINGS } from '../../common/js/data.js'
+import { DRINKS, LINES, ICE_OPTS, SUGAR_OPTS, TOPPINGS } from '@/common/data'
+import { setCheckoutDraft } from '@/common/store/session'
 
-const app = getApp()
 const lines = LINES
 const iceOpts = ICE_OPTS
 const sugarOpts = SUGAR_OPTS
@@ -137,13 +137,13 @@ const toggleTopping = (t) => {
 }
 
 const toCheckout = () => {
-	app.globalData.draft = {
+	setCheckoutDraft({
 		drink: drink.value,
 		ice: ice.value,
 		sugar: sugar.value,
 		toppings: picked.value.slice(),
 		count: count.value
-	}
+	})
 	uni.navigateTo({ url: '/pages/checkout/index' })
 }
 </script>

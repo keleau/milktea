@@ -133,7 +133,7 @@
 
 <script setup>
 import { ref, computed } from 'vue'
-import { DRINKS, LINES, STORE, genBanner } from '../../common/js/data.js'
+import { DRINKS, LINES, STORE } from '@/common/data'
 
 // 状态栏高度：海报轮播沉浸到状态栏之下
 const statusBarHeight = uni.getSystemInfoSync().statusBarHeight
@@ -160,7 +160,7 @@ const banners = [
 		big: ['新客', '9', '折 喝爆款'],
 		sub: '双杯 85 折 · 三杯 8 折',
 		btn: '点击领取',
-		bg: genBanner('warm creamy caramel milk tea swirl scene, silky milk waves in beige tones, two cups on a wooden table, cozy dessert shop counter, soft morning light'),
+		bg: '/static/resource/images/banner_summer.jpg',
 		link: 'menu'
 	},
 	{
@@ -170,17 +170,17 @@ const banners = [
 		big: ['爪价低至', '5.8', '折'],
 		sub: '银牌 5.8 · 金牌 5 · 黑金 4.5 折',
 		btn: '立即查看',
-		bg: genBanner('dark roasted brown sugar bubble milk tea with glossy syrup drizzle, deep caramel tones, moody warm rim light, luxurious dark background'),
+		bg: '/static/resource/images/banner_boba.jpg',
 		link: 'soon'
 	},
 	{
-		theme: 'fresh',
-		kicker: '玉·清爽系列',
-		title: '冰爽果茶季',
-		big: ['新品', '12', '元起'],
-		sub: '百香果 · 柠檬 · 青提 冷萃上新',
-		btn: '去尝鲜',
-		bg: genBanner('fresh fruit tea with passion fruit seeds, lemon slices and mint, bright airy pastel green background, summer refreshing vibe'),
+		theme: 'light',
+		kicker: '坂本 · 纯选',
+		title: '猫爪厚乳茶',
+		big: ['奶香', '2', '倍加厚'],
+		sub: '手打奶泡 · 猫爪拉花限定',
+		btn: '去点单',
+		bg: '/static/resource/images/banner_milk.jpg',
 		link: 'menu'
 	}
 ]

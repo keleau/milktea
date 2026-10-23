@@ -83,9 +83,9 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
-import { STORE, COUPONS, saveOrder } from '../../common/js/data.js'
+import { STORE, COUPONS, saveOrder } from '@/common/data'
+import { getCheckoutDraft, clearCheckoutDraft } from '@/common/store/session'
 
-const app = getApp()
 const store = STORE
 
 const draft = ref(null)
@@ -94,12 +94,12 @@ const couponId = ref(0)
 const submitting = ref(false)
 
 onLoad(() => {
-	draft.value = app.globalData.draft || null
+	draft.value = getCheckoutDraft()
 })
 
 onShow(() => {
 	// 直接进入（无草稿）时返回点单页
-	if (!app.globalData.draft) {
+	if (!getCheckoutDraft()) {
 		uni.showToast({ title: '请先选择饮品', icon: 'none' })
 		setTimeout(() => uni.switchTab({ url: '/pages/menu/index' }), 600)
 	}
@@ -134,7 +134,7 @@ const submitOrder = () => {
 		mode: mode.value,
 		coupon: couponCut.value
 	})
-	app.globalData.draft = null
+	clearCheckoutDraft()
 	setTimeout(() => {
 		submitting.value = false
 		uni.redirectTo({ url: '/pages/order/order?oid=' + order.out_trade_no })

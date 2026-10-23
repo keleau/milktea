@@ -1,15 +1,7 @@
 <script>
-import utils from './common/js/utils.js'
-
 export default {
 	onLaunch() {
-		// 四猫茶学园无后端依赖：数据见 common/js/data.js，订单走本地 storage
-	},
-	// 全局数据：各页面通过 getApp().globalData 访问
-	globalData: {
-		utils: utils,
-		name: '四猫茶学园',
-		orders_filt: ''
+		// 四猫茶学园无后端依赖：数据见 common/data，订单走本地 storage
 	}
 }
 </script>

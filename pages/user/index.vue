@@ -92,9 +92,9 @@
 <script setup>
 import { ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
-import { STORE, countByState } from '../../common/js/data.js'
+import { STORE, countByState } from '@/common/data'
+import { setOrdersFilter } from '@/common/store/session'
 
-const app = getApp()
 const store = STORE
 
 // 昵称：首次生成本地昵称并持久化
@@ -141,7 +141,7 @@ const changeAvatar = () => {
 }
 
 const toOrders = (filt) => {
-	app.globalData.orders_filt = filt
+	setOrdersFilter(filt)
 	uni.switchTab({ url: '/pages/order/index' })
 }
 const comingSoon = () => {

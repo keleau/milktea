@@ -253,10 +253,10 @@
 
 - 页面：`pages/<语义名>/index.vue`（如 `pages/menu/index.vue`、`pages/detail/index.vue`）
 - 组件：`components/<名>/<名>.vue`，easycom 自动注册（如 `components/paws/paws.vue`）；**仅保留有页面引用的组件**（paws/share），未引用的 navbar/formater/counter 已清理
-- 数据：`common/js/data.js`（产品线、饮品、选项、订单 storage 读写、`genImg`/`genBanner` 远程图工厂）
+- 数据与工具：`common/data/`（`drinks.js` 产品线与饮品、`shop.js` 门店/优惠券、`orders.js` 订单读写，`index.js` 统一出口）；`common/utils/`（`image.js` 图片工厂、`date.js` 时间格式化、`storage.js` 安全缓存）；`common/store/session.js` 页面间临时态（结算草稿、订单筛选）
 - 样式 Token：`uni.scss` 中 `$vp-*` 变量，页面样式内联于 SFC `<style>`
-- 静态资源：`static/resource/images/`，小写 + 下划线；**仅保留被引用资源**（tab 图标 8 张、avatar.jpg、share 弹层 3 张），模板遗留图已清理
-- 饮品图：远程 `text_to_image` URL（`...&image_size=square_hd`）；Banner 场景图：`...&image_size=landscape_16_9`，提示词统一由第 11 章风格库生成，禁止大图入包
+- 静态资源：`static/resource/images/`，小写 + 下划线；**仅保留被引用资源**（tab 图标 8 张、avatar.jpg、share 弹层、banner_summer.jpg / banner_boba.jpg / banner_milk.jpg、drink_1~8.jpg；banner_cat.jpg 为黑糖波波备用素材），模板遗留图已清理
+- 饮品图：1~8 号用本地 `drink_<id>.jpg`（560×560，已去水印、压缩 15~27KB）；9~12 号仍为远程 `text_to_image`（`...&image_size=square_hd`）。Banner：本地 3 张 `banner_summer / banner_boba / banner_milk`（750×788，与轮播容器同比例——保证猫、奶茶杯、背景三者都完整露出，不被 aspectFill 裁掉），轮播固定 3 页（新客专享 → 会员日 → 猫爪厚乳茶，浅/深/浅交替）；本地单图统一 ≤100KB，禁止大图入包
 - 本地订单：`uni.storage` key `milk_orders`（数组，`out_trade_no` 唯一）
 - 分支命名：`feature/cat-theme`；提交信息：`feat: 四猫茶学园首页改版` 格式
 
