@@ -1,12 +1,5 @@
 <script>
-import { ensureLogin } from './common/api/auth'
-
-export default {
-	onLaunch() {
-		// 演示环境静默登录；后端未启动时各页面会给出网络提示，启动后自动恢复
-		ensureLogin().catch(() => {})
-	}
-}
+export default {}
 </script>
 
 <style>

@@ -188,12 +188,14 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 `POST /api/v1/auth/wx-login`
 
 ```json
-{ "code": "demo", "nickname": "猫友1234", "avatar": "" }
+{ "code": "081abc", "mock_id": "device-1729-abc123", "nickname": "猫友1234", "avatar": "" }
 ```
 
 - `code == "demo"` → openid 固定 `mock-openid-demo` → 预置用户 1001。
-- 其他 code → `sha256(code)` 前 24 位拼 `mock-` 作为 openid；不存在则自动注册 V1 / 0 积分 / 0 券。
+- 传了 `mock_id` → `sha256("device:" + mock_id)` 前 24 位拼 `mock-` 作为 openid；不存在则自动注册 V1 / 0 积分 / 0 券。
+- 未传 `mock_id` → 退回 `sha256(code)` 前 24 位，行为与旧版一致。
 - 昵称/头像可选，传了会更新已有用户。
+- `mock_id` 由前端生成并持久化在本地，长度 1~64；这样真实 `uni.login()` code 每次都变，同一台设备仍能复用账号。接入真实微信后应改为 `code2session` 返回的 `openid`。
 
 响应：
 
@@ -237,7 +239,7 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 返回新的 `{access_token, refresh_token, token_type, expires_in}`。
 
-前端在收到 401 / 1002 时自动刷新并重放一次；刷新失败则清本地会话。后端不维护 token 黑名单，退出登录只需前端清 token（演示项目）。
+前端在收到 401 / 1002 时自动刷新并重放一次；刷新失败则清本地会话并 `reLaunch` 登录页。后端不维护 token 黑名单，退出登录只需前端清 token（演示项目）。
 
 ### 4.4 鉴权依赖
 
@@ -610,9 +612,15 @@ COMMIT
 curl -s http://127.0.0.1:8000/
 curl -s http://127.0.0.1:8000/api/v1/menu/lines
 
-# 2. 登录
+# 2. 登录（演示会员）
 curl -s -X POST http://127.0.0.1:8000/api/v1/auth/wx-login \
   -H "Content-Type: application/json" -d '{"code":"demo"}'
+
+# 2.1 模拟微信登录：同一 mock_id 两次应返回同一个 user.id
+curl -s -X POST http://127.0.0.1:8000/api/v1/auth/wx-login \
+  -H "Content-Type: application/json" -d '{"code":"081aaa","mock_id":"device-test"}'
+curl -s -X POST http://127.0.0.1:8000/api/v1/auth/wx-login \
+  -H "Content-Type: application/json" -d '{"code":"092bbb","mock_id":"device-test"}'
 
 # 3. 带 token
 TOKEN=... # 上一步 data.access_token
@@ -659,8 +667,9 @@ curl -s -X POST http://127.0.0.1:8000/api/v1/payments/wechat/notify \
 | H5 控制台 CORS 错误 | 请求打到了别的地址，或用了错误的协议 | 确认 `API_BASE_URL` 为后端地址；后端已 `allow_origins=["*"]` |
 | 图片裂开 / 404 | `BASE_URL` 还是 127.0.0.1，真机访问不到；或文件名不对 | 改后端 `.env` 的 `BASE_URL`；检查 `static/images/` |
 | 401 / 1002 循环 | refresh_token 失效；系统时间偏差；`APP_SECRET` 变了 | 清前端缓存重新登录；确认后端未改密钥 |
-| 登录后还是空数据 | 用了不同 code，生成了新用户 | 演示统一用 `demo`；或按用户 ID 查数据 |
-| 领券 3003 | 演示账号已领过两张券 | 换新 code 注册新用户；或清库重来 |
+| 登录后还是空数据 | 用了新账号（换了 `mock_id` 或清了小程序缓存），新用户本来就没有历史数据 | 想共用演示数据就点「演示会员登录」；独立账号按用户 ID 查数据 |
+| 同一设备重复微信登录却换号 | 小程序缓存被清，`milk_mock_id` 重新生成 | 演示环境可接受；需要绝对稳定就接入真实 `code2session` |
+| 领券 3003 | 演示账号已领过两张券 | 退出后用「微信一键登录」注册新用户；或清库重来 |
 | 结算提示券被占用 3004 | 有一笔待支付订单锁着券 | 到订单列表取消那笔待支付订单 |
 | 外送建单 1001 | 没传 `address_id` | 结算页选地址；地址必须属于当前用户 |
 | 支付 4002 | 订单已支付 | 刷新订单详情；重复 notify 是幂等的 |
@@ -675,7 +684,7 @@ curl -s -X POST http://127.0.0.1:8000/api/v1/payments/wechat/notify \
 
 - `APP_SECRET` 默认值只能用于本地演示，部署必须换随机长串。
 - `.env` 不提交；聊天、文档、前端代码里不出现数据库密码。
-- 微信登录、微信支付、退款均为模拟；notify 公开且不验签，**不能用于生产**。
+- 微信登录、微信支付、退款均为模拟；notify 公开且不验签，**不能用于生产**。`mock_id` 只是前端本地标识，不是可信身份，任何人都能伪造，生产必须用 `code2session` 的 openid。
 - CORS `*` 仅方便联调；生产收紧到具体域名。
 - 上传头像只校验 MIME 与大小，演示够用；生产还应做图片重编码、病毒扫描、对象存储。
 - 订单超时取消、券锁定超时释放未实现定时任务；演示结束请手动取消未支付订单。
@@ -687,7 +696,7 @@ curl -s -X POST http://127.0.0.1:8000/api/v1/payments/wechat/notify \
 
 | 方法 | 路径 | 鉴权 | 前端页面 |
 |---|---|---|---|
-| POST | `/auth/wx-login` | 否 | App 启动 |
+| POST | `/auth/wx-login` | 否 | 登录页两个入口 |
 | POST | `/auth/refresh` | 否 | 请求层 401 |
 | GET/PATCH | `/users/me` | 是 | 首页、我的 |
 | POST | `/users/me/avatar` | 是 | 我的 |

@@ -4,7 +4,7 @@
  * - 自动带 Bearer，拆 { code, message, data }，页面直接拿 data
  * - 401/1002 自动刷新 token 并重放一次；并发 401 共用一个刷新 Promise
  */
-import { API_BASE_URL, API_PREFIX, REQUEST_TIMEOUT } from '@/common/config'
+import { API_BASE_URL, API_PREFIX, LOGIN_PAGE, REQUEST_TIMEOUT } from '@/common/config'
 import { clearSession, getAccessToken, getRefreshToken, saveTokens } from './token'
 
 export class ApiError extends Error {
@@ -14,6 +14,25 @@ export class ApiError extends Error {
 		this.code = code
 		this.statusCode = statusCode
 	}
+}
+
+let redirecting = false
+
+/** 未登录/登录失效统一回登录页；已在登录页或正在跳转时不重复触发 */
+export function redirectToLogin() {
+	if (redirecting) return
+	const pages = getCurrentPages()
+	const route = pages.length ? pages[pages.length - 1].route : ''
+	if (route === 'pages/login/index') return
+	redirecting = true
+	uni.reLaunch({
+		url: LOGIN_PAGE,
+		complete: () => {
+			setTimeout(() => {
+				redirecting = false
+			}, 800)
+		}
+	})
 }
 
 /** 拼接 query，空值不传（后端 state 等 Literal 参数不能收空字符串） */
@@ -118,12 +137,18 @@ export async function request(options) {
 		return request({ ...options, retried: true })
 	}
 
-	if (options.auth !== false) clearSession()
-	throw new ApiError(
+	const error = new ApiError(
 		(res.data && res.data.code) || 1002,
 		(res.data && res.data.message) || '登录状态已过期，请重新登录',
 		res.statusCode || 401
 	)
+	if (options.auth !== false) {
+		clearSession()
+		redirectToLogin()
+		// 已统一跳转登录页，页面不必再弹错误提示
+		error.silent = true
+	}
+	throw error
 }
 
 /** 上传文件（头像），逻辑与 request 一致，只是换用 uni.uploadFile */
@@ -151,12 +176,17 @@ export function upload(path, filePath, name = 'file') {
 					attempt(true).then(resolve, reject)
 					return
 				}
-				if (needAuth) clearSession()
-				reject(new ApiError(
+				const error = new ApiError(
 					body && typeof body.code === 'number' ? body.code : -1,
 					(body && body.message) || `上传失败（HTTP ${res.statusCode}）`,
 					res.statusCode
-				))
+				)
+				if (needAuth) {
+					clearSession()
+					redirectToLogin()
+					error.silent = true
+				}
+				reject(error)
 			},
 			fail: () => reject(new ApiError(-1, '网络请求失败，请检查后端是否启动', 0))
 		})
@@ -166,8 +196,9 @@ export function upload(path, filePath, name = 'file') {
 
 /** 页面统一错误提示 */
 export function showError(error) {
+	if (error && error.silent) return
 	if (error && error.code === 1002) {
-		uni.showToast({ title: '登录已过期，请重新进入', icon: 'none' })
+		uni.showToast({ title: '登录已过期，请重新登录', icon: 'none' })
 		return
 	}
 	uni.showToast({

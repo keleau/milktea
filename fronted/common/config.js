@@ -10,6 +10,12 @@ export const API_PREFIX = '/api/v1'
 export const DEMO_LOGIN_CODE = 'demo'
 export const REQUEST_TIMEOUT = 15000
 
+/** 登录页路径；未登录或登录失效时跳回这里 */
+export const LOGIN_PAGE = '/pages/login/index'
+
+/** 本机固定 ID：微信 code 每次都变，用它让重复登录落到同一个模拟账号 */
+export const MOCK_ID_KEY = 'milk_mock_id'
+
 /** 本地会话缓存键 */
 export const TOKEN_KEYS = {
 	access: 'milk_access_token',

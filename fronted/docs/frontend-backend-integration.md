@@ -61,6 +61,11 @@ export const API_PREFIX = '/api/v1'
 // 演示登录：后端把 code=demo 映射到预置会员 1001（V2、320 积分、2 张券、1 个地址）
 export const DEMO_LOGIN_CODE = 'demo'
 export const REQUEST_TIMEOUT = 15000
+
+// 未登录 / 登录失效时统一回到登录页
+export const LOGIN_PAGE = '/pages/login/index'
+// 本机固定 ID：微信 code 每次都变，用它在演示环境稳定复用同一个模拟账号
+export const MOCK_ID_KEY = 'milk_mock_id'
 ```
 
 切换场景时只改 `API_BASE_URL`：
@@ -85,9 +90,16 @@ cd fastapi_demo
 - `.env` 已被 `.gitignore` 忽略，密码不写进前端、不提交仓库。
 - 打开 `http://127.0.0.1:8000/docs` 确认服务正常。
 
-### 2.3 演示账号
+### 2.3 登录与演示账号
 
-`POST /api/v1/auth/wx-login`，请求体 `{"code":"demo"}`：
+登录页 `pages/login/index` 提供两个入口，都调 `POST /api/v1/auth/wx-login`：
+
+| 入口 | 请求体 | 结果 |
+|---|---|---|
+| 演示会员登录 | `{"code":"demo"}` | 固定进入预置会员 1001，带积分/券/订单 |
+| 微信一键登录 | `{"code":"<uni.login code>","mock_id":"device-..."}` | 后端按 `mock_id` 哈希出 openid，同一设备重复登录复用同一账号；新账号数据为空 |
+
+`code=demo` 的预置数据：
 
 | 项目 | 预置值 |
 |---|---|
@@ -97,7 +109,9 @@ cd fastapi_demo
 | 收货地址 | 1 条默认地址（张女士，13800008888） |
 | 门店 | 1 星悦广场店（resting）、2 万象城店（open）、3 大学城店（open） |
 
-> 演示登录是**共享账号**：所有用 `code=demo` 的设备看到同一份订单/积分数据。需要独立账号时，把 `DEMO_LOGIN_CODE` 换成设备唯一且稳定的字符串（后端会按字符串哈希生成 openid 并自动注册），或接入真实微信 `uni.login()` 的 code。
+> 演示会员是**共享账号**：所有点「演示会员登录」的设备看到同一份订单/积分数据。需要隔离数据时点「微信一键登录」，后端会按本机 `mock_id` 自动注册独立账号。
+>
+> 当前后端没有微信 AppSecret，`uni.login()` 的 code 不会拿去换取 openid，只是满足接口参数；真实接入需在后端调用 `code2session`，并用返回的 `openid` 取代 `mock_id` 的哈希逻辑。
 
 ---
 
@@ -110,7 +124,7 @@ cd fastapi_demo
 | `common/config.js` | 后端地址、API 前缀、演示登录 code、超时 |
 | `common/api/token.js` | 读写 `access_token` / `refresh_token` / 用户缓存，清理会话 |
 | `common/api/request.js` | `uni.request` 封装：拼 URL、带 Bearer、拆 `{code,message,data}`、401 自动刷新、抛 `ApiError` |
-| `common/api/auth.js` | 登录、静默登录 `ensureLogin()`、刷新用户、改昵称、上传头像 |
+| `common/api/auth.js` | 微信一键登录 / 演示会员登录、`ensureLogin()` 登录守卫、退出登录、改昵称、上传头像 |
 | `common/api/catalog.js` | 产品线、商品、规格、榜单、门店 |
 | `common/api/coupons.js` | 券模板、领券、我的券、可用券 |
 | `common/api/orders.js` | 试算、创建、列表、详情、取消、完成、再来一单、评价、支付 |
@@ -137,30 +151,38 @@ cd fastapi_demo
 - `code === 1002` / HTTP 401：
   1. 有 `refresh_token` 且本次请求不是刷新接口 → 调 `POST /auth/refresh`
   2. 成功后保存新 token，并**重放原请求一次**
-  3. 刷新也失败 → 清空本地会话，抛 `1002`
+  3. 刷新也失败 → 清空本地会话，`uni.reLaunch` 回登录页，抛带 `silent` 标记的 `1002`
 - 网络失败 → `code = -1`，提示「网络请求失败，请检查后端是否启动」。
 - 多个请求同时 401 时共用一个刷新 Promise，避免并发刷新把后一个 refresh_token 作废。
+- 跳登录页有防重入：已在登录页或 800ms 内正在跳转时不再触发。
 
 页面统一用 `showError(error)`：
 
 ```js
+if (error.silent) return   // 已跳登录页，不再重复弹提示
 uni.showToast({ title: error.message || '请求失败', icon: 'none' })
 ```
 
 ### 3.3 登录与会话
 
 ```
-App.vue onLaunch
-  └─ ensureLogin()
-       ├─ 本地有 access_token → 直接返回缓存用户
-       └─ 没有 → POST /auth/wx-login {code:"demo"}
-            └─ data: {access_token, refresh_token, token_type, expires_in, user}
-                 ├─ token.js 保存 token 与 user
-                 └─ 页面读取 user（我的页、首页会员行）
+冷启动 → pages/login/index（pages.json 第一页）
+  ├─ 本地已有 access_token → switchTab 首页
+  └─ 没有 → 展示两个登录入口
+       ├─ 微信一键登录：uni.login → code + 本机 mock_id
+       └─ 演示会员登录：code=demo
+            └─ POST /auth/wx-login
+                 └─ data: {access_token, refresh_token, token_type, expires_in, user}
+                      ├─ token.js 保存 token 与 user
+                      └─ switchTab 首页
 
 任意需登录接口 → Authorization: Bearer <access_token>
-  └─ 401/1002 → refresh → 重放 → 仍失败则清会话
+  └─ 401/1002 → refresh → 重放 → 仍失败：清会话 + reLaunch 登录页
+
+我的页「退出登录」→ clearSession() + reLaunch 登录页（门店选择与结算草稿保留）
 ```
+
+`ensureLogin()` 的语义已从「静默登录」改为「登录守卫」：有 token 直接返回缓存用户；没有 token 或刷新失败时跳登录页并抛 `silent` 错误，调用页面不用再处理提示。
 
 需登录的页面/动作在请求前调用 `await ensureLogin()`：
 
@@ -178,6 +200,7 @@ App.vue onLaunch
 | `milk_access_token` | access token | 请求头 |
 | `milk_refresh_token` | refresh token | 401 刷新 |
 | `milk_user` | 当前用户对象 | 首页/我的页首屏、离线兜底 |
+| `milk_mock_id` | 本机固定模拟身份 | 微信登录稳定复用账号；退出登录不清 |
 | `milk_store_id` | 当前选中门店 ID | 菜单 → 详情 → 结算 |
 | `common/store/session.js` | 结算草稿、订单筛选、结算页选中的地址 ID | 页面间临时状态，不落盘 |
 
@@ -191,14 +214,14 @@ App.vue onLaunch
 
 | 页面 | 读取接口 | 写入接口 | 主要数据库表 |
 |---|---|---|---|
-| `App.vue` | — | `POST /auth/wx-login` | `users`、`member_levels` |
-| 首页 `pages/index` | `GET /users/me`、`GET /menu/lines`、`GET /menu/products?tab=classic`、`GET /stores`、`GET /coupons/templates` | 静默登录 | `users`、`products`、`stores`、`coupon_templates` |
+| 登录 `pages/login` | — | `POST /auth/wx-login` | `users`、`member_levels` |
+| 首页 `pages/index` | `GET /users/me`、`GET /menu/lines`、`GET /menu/products?tab=classic`、`GET /stores`、`GET /coupons/templates` | — | `users`、`products`、`stores`、`coupon_templates` |
 | 点单 `pages/menu` | `GET /stores`、`GET /menu/lines`、`GET /menu/options`、`GET /menu/products?tab=`、`GET /coupons/templates` | `POST /coupons/{id}/claim` | `stores`、`products`、`toppings`、`user_coupons` |
 | 详情 `pages/detail` | `GET /menu/products/{id}`、`GET /menu/lines` | —（把草稿交给结算页） | `products`、`product_lines`、`toppings` |
 | 结算 `pages/checkout` | `GET /stores/{id}`、`GET /addresses`、`POST /orders/price-preview` | `POST /orders`、`POST /payments/wechat/prepay`、`POST /payments/wechat/notify` | `orders`、`order_items`、`order_item_toppings`、`user_coupons`、`idempotency_keys`、`products` |
 | 订单列表 `pages/order/index` | `GET /orders?state=` | — | `orders`、`order_items` |
 | 订单详情 `pages/order/order` | `GET /orders/{no}`、`GET /payments/{no}`、`GET /menu/products/{id}`、`GET /menu/options` | `POST /orders/{no}/cancel`、`POST /orders/{no}/complete`、`POST /orders/{no}/review`、`POST /orders/{no}/repeat`、支付 | `orders`、`order_items`、`order_item_toppings`、`products`、`user_coupons`、`points_logs` |
-| 我的 `pages/user` | `GET /users/me`、`GET /orders/counts`、`GET /member/profile` | `PATCH /users/me`、`POST /users/me/avatar` | `users`、`orders`、`user_coupons`、`points_logs` |
+| 我的 `pages/user` | `GET /users/me`、`GET /orders/counts`、`GET /member/profile` | `PATCH /users/me`、`POST /users/me/avatar`；退出登录只清本地 | `users`、`orders`、`user_coupons`、`points_logs` |
 | 榜单 `pages/rank` | `GET /menu/rank?period=week`、`GET /menu/lines` | — | `products`、`product_lines` |
 | 地址 `pages/address` | `GET /addresses` | `POST/PATCH/DELETE /addresses`、`PATCH /addresses/{id}/default` | `addresses` |
 | 券包 `pages/coupon` | `GET /users/me/coupons?status=`、`GET /coupons/templates` | `POST /coupons/{id}/claim` | `user_coupons`、`coupon_templates` |
@@ -223,7 +246,7 @@ App.vue onLaunch
 2. `GET /menu/lines` + `GET /menu/options` → 左侧分类、冰/糖/小料。
 3. `GET /menu/products?tab=classic&store_id=当前门店&page_size=100` → 商品卡。
 4. `GET /coupons/templates` → 券包特惠列表；已领取的显示「已领取」。
-5. 切页签：`classic / member / new / mine` 传 `tab`。`mine` 前必须 `ensureLogin()`，返回 401 时显示空态并提示登录。
+5. 切页签：`classic / member / new / mine` 传 `tab`。`mine` 前必须 `ensureLogin()`，未登录会被守卫带回登录页。
 
 后端 → 视图字段：
 
@@ -253,7 +276,7 @@ uni.navigateTo({ url: '/pages/checkout/index' })
 
 > 购物车的「预估」金额只做展示；结算页会用 `/orders/price-preview` 重新算。
 
-领券：点击券卡 / 一键领取 → `POST /coupons/{template_id}/claim`。成功把本地 `claimed` 置 true；重复领取（3003）提示「已领取」；未登录先 `ensureLogin()`。演示账号两张券都已领取。
+领券：点击券卡 / 一键领取 → `POST /coupons/{template_id}/claim`。成功把本地 `claimed` 置 true；重复领取（3003）提示「已领取」；未登录时 `ensureLogin()` 会回登录页。演示账号两张券都已领取。
 
 ### 4.4 详情页 `pages/detail/index.vue`
 
@@ -485,7 +508,7 @@ setCheckoutDraft({
 | `0` | 正常 |
 | `-1` | 网络失败，Toast「网络请求失败，请检查后端是否启动」 |
 | `1001` | 直接展示后端 `message`（参数/地址/冰糖不合法） |
-| `1002` | 自动刷新一次；仍失败清会话并提示重新登录 |
+| `1002` | 自动刷新一次；仍失败清会话并跳转登录页 |
 | `1003` | 提示「无权操作」 |
 | `1004` | 提示资源不存在，返回上一页 |
 | `2001` | 商品已下架，刷新菜单 |
@@ -510,7 +533,7 @@ setCheckoutDraft({
 
 | 前端动作 | 后端接口 | 数据库变化 |
 |---|---|---|
-| 启动 / 登录 | `POST /auth/wx-login` | 首次登录插入 `users`；不新增券 |
+| 登录页两个入口 | `POST /auth/wx-login` | 首次登录插入 `users`；不新增券 |
 | 看菜单 | `GET /menu/*` | 只读 `products`、`product_lines`、`toppings` |
 | 领券 | `POST /coupons/{id}/claim` | 插入 `user_coupons`（快照标题/门槛/减免/过期时间） |
 | 试算 | `POST /orders/price-preview` | 只读；不改券、不锁库存 |
@@ -533,7 +556,7 @@ setCheckoutDraft({
 ## 8. 联调步骤（按顺序）
 
 1. **起后端**：`uvicorn main:app --reload`，打开 `/docs`。
-2. **验证登录**：`POST /api/v1/auth/wx-login`，body `{"code":"demo"}`，拿到 token。
+2. **验证登录**：`POST /api/v1/auth/wx-login`，body `{"code":"demo"}`，拿到 token；再试 `{"code":"081abc","mock_id":"device-test"}` 两次，应返回同一个用户。
 3. **验证只读**：菜单、门店、榜单、券模板。
 4. **验证登录态**：`GET /users/me`、`GET /addresses`、`GET /users/me/coupons`。
 5. **验证试算**：`POST /orders/price-preview`，对比小计/打包费/券/合计。
@@ -559,9 +582,11 @@ curl -s "$BASE/orders?state=pending_pay" -H "Authorization: Bearer $TOKEN"
 
 ### 8.2 前端侧检查点
 
-- 冷启动自动登录成功，`milk_access_token` / `milk_user` 已写入。
+- 冷启动先停在登录页；点「演示会员登录」后进入首页，`milk_access_token` / `milk_user` 已写入；再次冷启动应直接进首页。
+- 「微信一键登录」首次会注册新账号；退出登录后再点一次，用户 ID 不变（`milk_mock_id` 仍在本机缓存）。
+- 我的页「退出登录」确认后回到登录页，token / 用户缓存已清空。
 - 菜单图片能加载：后端 `image` 是 HTTP URL，但页面实际渲染 `/static/resource/images/drink_*.jpg` 本地图，控制台不应再出现 HTTP 图片警告。
-- 切换「经典 / 会员专享价 / 新品 / 我的常点」时商品变化；「我的常点」未登录时会先登录。
+- 切换「经典 / 会员专享价 / 新品 / 我的常点」时商品变化；未登录访问「我的常点」会被守卫带回登录页。
 - 领券后按钮变「已领取」，我的页券数 +1（演示账号本身已领完，需换新账号验证）。
 - 结算页金额与 `/orders/price-preview` 完全一致；切换自取/外送时打包费变化。
 - 外送未选地址时不能提交；选择地址后能提交。
@@ -594,8 +619,8 @@ curl -s "$BASE/orders?state=pending_pay" -H "Authorization: Bearer $TOKEN"
 ## 10. 演示环境边界
 
 1. **支付是模拟的**：`prepay` 返回假参数，`notify` 不验签、直接置成功。真实接入时前端改 `uni.requestPayment`，后端补 APIv3 验签与解密。
-2. **微信登录是模拟的**：`code=demo` 固定映射到 1001；其他 code 按哈希生成 openid。真实接入需 `code2session`。
-3. **demo 账号共享**：订单、积分、券的修改会写进默认 `milktea.db`，多人同时演示会互相影响。需要隔离时复制一份数据库或换独立登录 code。
+2. **微信登录是模拟的**：`code=demo` 固定映射到 1001；带 `mock_id` 时按设备 ID 哈希生成稳定 openid；都没传才退回按 code 哈希。真实接入需 `code2session`。
+3. **demo 会员共享**：点「演示会员登录」的设备共用 1001 的订单、积分与券，多人同时演示会互相影响。需要隔离时改用「微信一键登录」生成独立账号。
 4. **待支付订单不会自动超时取消**：后端的 15 分钟超时策略未实现定时任务；券会一直锁定，需手动取消订单释放。演示完请取消未支付订单。
 5. **库存在支付时扣减**：创建订单只校验库存，支付回调才扣库存；高并发下真实项目需要更严格的锁与超时释放。
 6. **图片域名**：12 张商品图已随小程序打包，`resolveImage()` 会优先使用本地图，因此不再依赖后端图床；上传头像仍以 HTTP 地址保存，微信开发者工具/真机需 HTTPS 才能显示，开发期刷新后会回退到本地默认头像。真机调用接口时 `BASE_URL` 与 `API_BASE_URL` 仍需同步改成电脑局域网 IP。
@@ -607,10 +632,10 @@ curl -s "$BASE/orders?state=pending_pay" -H "Authorization: Bearer $TOKEN"
 
 ### 11.1 已落地范围
 
-- 请求层：`common/config.js`、`common/api/request.js`（统一解包、Bearer、401/1002 自动刷新并重放、上传）、`common/api/token.js`（会话缓存）、`common/api/auth.js`（静默登录、资料、昵称、头像）。
+- 请求层：`common/config.js`、`common/api/request.js`（统一解包、Bearer、401/1002 自动刷新并重放、登录页跳转、上传）、`common/api/token.js`（会话缓存）、`common/api/auth.js`（两种登录方式、登录守卫、退出、资料、昵称、头像）。
 - 业务接口层：`catalog`、`coupons`、`addresses`、`orders`、`users`、`member`、`adapters`；页面只消费视图字段，价格与状态以服务端为准。
-- 页面：首页、点单、详情、榜单、结算、订单列表、订单详情、我的均已改为接口数据；新增 `pages/coupon/index.vue`（券包）和 `pages/address/index.vue`（收货地址），并已注册到 `pages.json`。
-- 启动：`App.vue` 调用 `ensureLogin()` 静默登录；`pages/user` 支持昵称修改、头像上传、订单角标、券包/地址入口。
+- 页面：登录、首页、点单、详情、榜单、结算、订单列表、订单详情、我的均已改为接口数据；新增 `pages/login/index.vue`（登录）、`pages/coupon/index.vue`（券包）和 `pages/address/index.vue`（收货地址），并已注册到 `pages.json`。
+- 启动：`pages.json` 第一页为登录页，已登录自动进首页；未登录或会话失效由请求层统一 `reLaunch` 回登录页；`pages/user` 支持昵称修改、头像上传、订单角标、券包/地址入口与退出登录。
 - 结算：创建订单使用稳定 `Idempotency-Key`，随后执行演示支付；支付失败时保留订单并跳转详情页继续支付。
 - 订单详情：支持多商品快照、取消、模拟出杯、评价、再来一单；地址被删除时仍显示历史快照。
 
@@ -624,7 +649,7 @@ curl -s "$BASE/orders?state=pending_pay" -H "Authorization: Bearer $TOKEN"
 - query 空值过滤、统一响应解包、`ApiError`；
 - access_token 被篡改时，refresh_token 能自动换新并成功重放请求。
 
-验证后已用 `database/build_sqlite.py --force` 重建种子库，当前演示库为初始状态（0 订单、用户 1001、优惠券 501/502 未使用）。
+验证后已用 `database/build_sqlite.py --force` 重建种子库；登录功能联调时产生的临时账号已删除，当前演示库仍为初始状态（0 订单、用户 1001、优惠券 501/502 未使用）。
 
 ### 11.3 尚需在 HBuilderX 里做的检查
 
@@ -659,3 +684,12 @@ curl -s "$BASE/orders?state=pending_pay" -H "Authorization: Bearer $TOKEN"
 - **`<wx-image> 图片链接 ... 不再支持 HTTP 协议`**：基础库 3.17.4 起 `<image>` 拒绝 HTTP。`adapters.js` 新增 `resolveImage()`，把后端 `http://.../static/images/drink_*.jpg`、`avatar.jpg` 映射为包内 `/static/resource/images/*`；订单详情 `items[].image` 同样映射。上传头像属于运行时文件，微信端先显示本地预览、重启后回退默认头像，正式部署需 HTTPS。
 - **`wx.getSystemInfoSync is deprecated`**：首页和点单页改用 `uni.getWindowInfo()`；`manifest.json` 已关闭 `uniStatistics`，减少 uni 统计产生的同类调用。
 - **仍会出现的日志**：`调试器日志回显 socket`、`preloaded ...`、`Subpackages: N/A`、`LazyCodeLoading` 属于微信开发者工具/uni 框架内部提示，不影响页面运行。
+
+### 11.6 登录功能（2026-10-25）
+
+- 入口：`pages/login/index.vue`，两个按钮——「微信一键登录」和「演示会员登录」；`pages.json` 把它放在第一页，实现启动先登录。
+- 微信登录：前端 `uni.login()` 取 code，再带上本机 `milk_mock_id`（首次随机生成并持久化）调用 `/auth/wx-login`。后端按 `device:<mock_id>` 哈希成稳定 openid，所以同一设备重复登录仍是同一账号，清缓存后会生成新账号。
+- 演示会员：`code=demo` → 预置用户 1001，适合展示有积分/券/订单的完整效果。
+- 会话守卫：`ensureLogin()` 不再静默注册；无 token 或刷新失败时 `reLaunch` 登录页，抛 `silent` 错误，页面不会重复弹提示。
+- 退出：我的页「退出登录」→ 清 token/用户缓存 → 回登录页；门店选择和结算草稿保留。
+- 后端对应改动：`LoginIn` 新增可选 `mock_id`（最长 64）；`wx_login` 优先用它生成 openid，未传才退回按 code 哈希。旧的 `{"code":"demo"}` 调用保持兼容。

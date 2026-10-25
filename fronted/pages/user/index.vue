@@ -87,6 +87,9 @@
 				<text class="cell-name">设置</text>
 				<text class="cell-arrow">›</text>
 			</view>
+			<view class="cell" hover-class="cell-hv" @tap="logoutAccount">
+				<text class="cell-name cell-danger">退出登录</text>
+			</view>
 		</view>
 
 		<!-- 昵称弹层 -->
@@ -114,7 +117,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
-import { ensureLogin, fetchMe, updateNickname, uploadAvatar } from '@/common/api/auth'
+import { ensureLogin, fetchMe, logout, updateNickname, uploadAvatar } from '@/common/api/auth'
 import { getOrderCounts } from '@/common/api/orders'
 import { showError } from '@/common/api/request'
 import { levelParts, resolveImage } from '@/common/api/adapters'
@@ -224,6 +227,17 @@ const comingSoon = () => {
 }
 const contact = () => {
 	uni.showToast({ title: '客服接入中…', icon: 'none' })
+}
+const logoutAccount = () => {
+	uni.showModal({
+		title: '退出登录',
+		content: '退出后需要重新登录才能查看会员信息',
+		confirmText: '退出',
+		confirmColor: '#8B5E3C',
+		success: (res) => {
+			if (res.confirm) logout()
+		}
+	})
 }
 const shareModalOpen = ref(false)
 const showShareModal = () => {
@@ -468,6 +482,9 @@ page {
 	font-size: 24rpx;
 	color: #8c8177;
 	margin-right: 12rpx;
+}
+.cell-danger {
+	color: #b4543f;
 }
 .cell-arrow {
 	font-size: 36rpx;

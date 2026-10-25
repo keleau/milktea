@@ -254,7 +254,7 @@
 
 ```json
 // 请求
-{ "code": "081Kx...", "nickname": "猫友1234", "avatar": "" }
+{ "code": "081Kx...", "mock_id": "device-...", "nickname": "猫友1234", "avatar": "" }
 // 响应 data
 {
   "access_token": "eyJ...",
@@ -274,7 +274,7 @@
 }
 ```
 
-> 新用户默认 V1、0 积分、0 券，可到券包中心领取。演示环境支持用 `code = "demo"` 登录预置会员（id 1001、V2、320 积分、2 张券）；其他 code 会按哈希生成模拟 openid 并自动注册。
+> 新用户默认 V1、0 积分、0 券，可到券包中心领取。演示环境支持用 `code = "demo"` 登录预置会员（id 1001、V2、320 积分、2 张券）；带 `mock_id` 时后端按 `device:<mock_id>` 哈希生成稳定 openid 并自动注册，不带才退回按 code 哈希。真实接入微信后由后端 `code2session` 得到 openid，`mock_id` 应移除。
 
 **PATCH /users/me** 请求 `{ "nickname": "布奇头号粉丝" }`，响应 data 为更新后的 `User`。
 

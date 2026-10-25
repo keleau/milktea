@@ -112,6 +112,8 @@ class UserOut(BaseModel):
 
 class LoginIn(BaseModel):
     code: str = Field(min_length=1, max_length=128)
+    # 演示环境用设备本地固定 ID 代替真实 openid，避免每次登录生成新账号
+    mock_id: str | None = Field(default=None, max_length=64)
     nickname: str | None = Field(default=None, max_length=20)
     avatar: str | None = None
 

@@ -21,6 +21,9 @@ router = APIRouter(prefix="/auth", tags=["认证"])
 def wx_login(payload: LoginIn, db: Session = Depends(get_db)):
     if payload.code == "demo":
         openid = "mock-openid-demo"
+    elif payload.mock_id:
+        # 未接微信 code2session 前，用设备固定 ID 保证同一台设备重复登录是同一个账号
+        openid = "mock-" + hashlib.sha256(f"device:{payload.mock_id}".encode()).hexdigest()[:24]
     else:
         openid = "mock-" + hashlib.sha256(payload.code.encode()).hexdigest()[:24]
 
