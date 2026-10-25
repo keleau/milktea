@@ -738,3 +738,25 @@ curl -s "$BASE/orders?state=pending_pay" -H "Authorization: Bearer $TOKEN"
 **后端对应改动**：`orders.table_no` 列（SQLite `TEXT` / MySQL `VARCHAR(8)`）、`POST /tables/resolve`、`GET /orders/{no}/pickup-qr`（segno 生成 PNG data URI）、`POST /staff/pickup/lookup|complete`、`.env` 新增 `STAFF_PIN`。
 
 **验证**：后端在临时 SQLite 库上跑过 24 项断言（桌码解析/规范化/非法 scene/非法桌号、堂食下单、外送+桌号拒绝、普通自取回归、支付、`table_no` 落库、取餐二维码内容与尺寸、错误口令、按码/按二维码查询、核销、重复核销 409、未知码 404）。线上库只执行了 `ALTER TABLE orders ADD COLUMN table_no TEXT`，未重建数据。页面交互需在 HBuilderX 真机或开发者工具按「首页扫码 → 点单 → 结算 → 支付 → 订单页二维码 → 我的 → 店员核销」走一遍（`uni.scanCode` 无法在 H5/桌面浏览器验证）。
+
+### 11.8 微信「扫一扫」直达点单页（小程序码，2026-10-25）
+
+**目标**：顾客用微信原生「扫一扫」扫桌上码，直接打开小程序点单页并自动绑定桌号，不需要先打开小程序再点「扫码点餐」。
+
+**后端**：
+
+- `app/services/wechat.py`：`get_access_token()` 进程内缓存（有效期 2 小时、每天限取 2000 次，提前 5 分钟过期）；`fetch_wxa_code(scene, page, env_version)` 调 `wxacode.getUnlimited` 返回图片二进制；token 失效（40001/42001）自动刷新重试一次。多进程部署需换成 Redis 等共享缓存。
+- `database/build_table_qrcodes.py` 新增 `--mode wechat`、`--env release|trial|develop`、`--page`（默认 `pages/menu/index`）。例如：
+  ```bash
+  python database/build_table_qrcodes.py --mode wechat --env trial --clean
+  ```
+  scene 仍为 `MILKTEA:<store_id>:<table_no>`（13 字符，远低于 32 字符上限），`check_path=false` 保证未发布页面也能生成。
+
+**前端**：
+
+| 文件 | 改动 |
+|---|---|
+| `pages/menu/index.vue` | `onLoad(options.scene)` 处理冷启动；`onShow` 通过 `uni.getEnterOptionsSync().query.scene` 处理热启动；同一 scene 去重，`dropTable` 后允许重新扫同码 |
+| `common/utils/scan.js` | 扫普通码读 `res.result`；扫本店小程序码读 `res.path` 里的 `scene` 参数 |
+
+**限制**：`trial`/`develop` 生成的小程序码只有体验成员/开发者能扫开；对外营业需 `--env release` 且小程序已发布。手机访问后端仍需 HTTPS 域名或真机调试绕过域名校验。

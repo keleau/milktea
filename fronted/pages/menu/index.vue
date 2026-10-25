@@ -277,7 +277,7 @@
 
 <script setup>
 import { ref, computed, nextTick, onMounted, getCurrentInstance, watch } from 'vue'
-import { onShow } from '@dcloudio/uni-app'
+import { onLoad, onShow } from '@dcloudio/uni-app'
 import ProductCard from '@/components/menu/product-card.vue'
 import CouponTicket from '@/components/menu/coupon-ticket.vue'
 import CategoryRail from '@/components/menu/category-rail.vue'
@@ -316,6 +316,8 @@ const listW = Math.floor(sys.windowWidth * 574 / 750)
 
 const mode = ref('自取')
 const tableCtx = ref(getTableContext())
+// 已处理过的启动 scene：避免 onLoad/onShow 重复解析同一张桌码
+let lastEntryScene = ''
 const tabId = ref('classic')
 const sideId = ref('coupon')
 const scrollInto = ref('')
@@ -368,6 +370,7 @@ const setMode = (next) => {
 
 const dropTable = () => {
 	tableCtx.value = null
+	lastEntryScene = ''
 	clearTableContext()
 	uni.showToast({ title: '已取消堂食', icon: 'none' })
 }
@@ -384,6 +387,43 @@ const applyTable = (ctx) => {
 		loadProducts()
 	}
 }
+
+/** 微信扫码直达：scene 形如 MILKTEA%3A1%3AA01，解析后自动绑定桌号 */
+const applyEntryScene = async (raw) => {
+	if (!raw) return
+	let scene = String(raw).trim()
+	try {
+		scene = decodeURIComponent(scene).trim()
+	} catch (error) {
+		// scene 含非法转义时按原文处理
+	}
+	if (!scene || scene === lastEntryScene) return
+	lastEntryScene = scene
+
+	try {
+		const table = await resolveTable(scene)
+		applyTable(table)
+		uni.showToast({ title: `${table.tableNo} 桌 · ${table.storeName}`, icon: 'none' })
+	} catch (error) {
+		// 不是本店桌码：留在普通点单页，不打断用户
+		console.warn('[menu] 桌码解析失败', scene, error)
+	}
+}
+
+/** 小程序在后台时扫码，新的 scene 只在启动参数里，不会重走 onLoad */
+const readEntryScene = () => {
+	try {
+		const entry = uni.getEnterOptionsSync ? uni.getEnterOptionsSync() : null
+		return (entry && entry.query && entry.query.scene) || ''
+	} catch (error) {
+		return ''
+	}
+}
+
+// 冷启动：微信扫桌上小程序码，scene 通过页面参数传入
+onLoad((options) => {
+	applyEntryScene(options && options.scene)
+})
 
 const scanTable = async () => {
 	let scene = ''
@@ -569,6 +609,8 @@ onMounted(async () => {
 })
 // 从首页扫码回来时，onShow 同步最新的桌号上下文
 onShow(() => {
+	// 热启动：小程序在后台被扫码唤起时，新桌码只在启动参数里
+	applyEntryScene(readEntryScene())
 	const ctx = getTableContext()
 	tableCtx.value = ctx
 	if (!ctx) return
