@@ -1,6 +1,8 @@
-unpackage/
-uni_modules/
-node_modules/
-.hbuilderx/
-.DS_Store
-*.local
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# 运行时上传的头像
+fastapi_demo/static/avatars/
