@@ -56,7 +56,6 @@
 import { ref, computed } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import { getOrder, updateOrderState } from '@/common/data'
-import { formatTime } from '@/common/utils/date'
 
 const order = ref(null)
 let orderNo = ''
@@ -90,11 +89,6 @@ const stateSub = computed(() => ({
 }[order.value?.state] || ''))
 
 const showPickCode = computed(() => order.value?.state === '制作中' || order.value?.state === '已完成')
-
-const createTime = computed(() => {
-	if (!order.value) return ''
-	return formatTime(order.value.create_time)
-})
 
 // 模拟支付：更新为制作中
 const payOrder = () => {

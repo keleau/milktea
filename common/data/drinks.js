@@ -53,11 +53,11 @@ export const DRINKS = [
 	// 汤姆·甜心角落
 	{ id: 7, line: 'tom', name: '布丁可可萌宠杯', price: 15, orig: 18, paws: 4, hot: true, isNew: false, desc: '整颗焦糖布丁沉底，可可香浓', img: localImg(7) },
 	{ id: 8, line: 'tom', name: '芋泥啵啵鲜奶茶', price: 15, paws: 5, hot: false, isNew: false, desc: '手捣芋泥厚挂壁，芋圆软糯', img: localImg(8) },
-	{ id: 9, line: 'tom', name: '草莓芝士奶盖', price: 16, paws: 4, hot: false, isNew: true, desc: '鲜草莓果肉，咸香芝士奶盖', img: genImg('one cup of strawberry milk tea with pink strawberry puree and white cheese foam top') },
+	{ id: 9, line: 'tom', name: '草莓芝士奶盖', price: 16, paws: 4, hot: false, isNew: true, desc: '鲜草莓果肉，咸香芝士奶盖', img: localImg(9) },
 	// 玉·清爽
-	{ id: 10, line: 'tama', name: '满杯百香果茶', price: 12, paws: 5, hot: false, isNew: false, desc: '整颗百香果，冰爽维C满格', img: genImg('one cup of passion fruit tea with visible seeds and orange yellow color, full of ice') },
-	{ id: 11, line: 'tama', name: '手打香水柠檬茶', price: 11, paws: 5, hot: false, isNew: false, desc: '现捶香水柠檬，酸爽解腻', img: genImg('one cup of smashed lemon green tea with fresh lemon slices, bright green yellow color') },
-	{ id: 12, line: 'tama', name: '冷萃乌龙青提茶', price: 14, paws: 4, hot: false, isNew: true, desc: '冷萃乌龙配青提，低糖果香', img: genImg('one cup of cold brew oolong tea with green grapes, light jade color with fruit pieces') }
+	{ id: 10, line: 'tama', name: '满杯百香果茶', price: 12, paws: 5, hot: false, isNew: false, desc: '整颗百香果，冰爽维C满格', img: localImg(10) },
+	{ id: 11, line: 'tama', name: '手打香水柠檬茶', price: 11, paws: 5, hot: false, isNew: false, desc: '现捶香水柠檬，酸爽解腻', img: localImg(11) },
+	{ id: 12, line: 'tama', name: '冷萃乌龙青提茶', price: 14, paws: 4, hot: false, isNew: true, desc: '冷萃乌龙配青提，低糖果香', img: localImg(12) }
 ]
 
 /** 冰度选项 */
