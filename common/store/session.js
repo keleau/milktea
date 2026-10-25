@@ -3,11 +3,11 @@
  * 替代散落在 globalData 上的隐式约定，读写入口统一，避免字段名拼错
  */
 
-/** @type {Object|null} 结算草稿：{ drink, ice, sugar, toppings, count } */
+/** @type {Object|null} 结算草稿：{ drink, ice, sugar, toppings, count, mode } */
 let checkoutDraft = null
 
-/** @type {string} 订单页待应用的筛选状态 */
-let ordersFilter = ''
+/** @type {string|null} 订单页待应用的筛选状态，null 表示本次进入不改变筛选 */
+let ordersFilter = null
 
 /** 写入结算草稿 */
 export const setCheckoutDraft = (draft) => {
@@ -30,6 +30,6 @@ export const setOrdersFilter = (filter) => {
 /** 读取并清空订单页筛选（订单页 onShow 消费一次） */
 export const takeOrdersFilter = () => {
 	const filter = ordersFilter
-	ordersFilter = ''
+	ordersFilter = null
 	return filter
 }

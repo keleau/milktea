@@ -109,9 +109,11 @@ const ice = ref('正常冰')
 const sugar = ref('五分糖')
 const picked = ref([])
 const count = ref(1)
+const mode = ref('自取')
 
 onLoad((params) => {
 	drink.value = DRINKS.find(d => d.id === Number(params.id)) || DRINKS[0]
+	mode.value = params.mode === 'delivery' ? '外送' : '自取'
 })
 
 const lineOf = computed(() => LINES.find(l => l.id === drink.value.line))
@@ -142,7 +144,8 @@ const toCheckout = () => {
 		ice: ice.value,
 		sugar: sugar.value,
 		toppings: picked.value.slice(),
-		count: count.value
+		count: count.value,
+		mode: mode.value
 	})
 	uni.navigateTo({ url: '/pages/checkout/index' })
 }

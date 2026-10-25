@@ -46,7 +46,7 @@
 				<view class="ep-toe ep-t3"></view>
 				<view class="ep-toe ep-t4"></view>
 			</view>
-			<text class="empty-text">还没有订单，去点一杯吧</text>
+			<text class="empty-text">{{ filt ? '暂无「' + filt + '」订单' : '还没有订单，去点一杯吧' }}</text>
 			<view class="empty-btn" hover-class="hv" @tap="toMenu">去点单</view>
 		</view>
 	</view>
@@ -70,8 +70,9 @@ const filt = ref('')
 const list = ref([])
 
 onShow(() => {
-	// 与“我的”页订单入口联动
-	filt.value = takeOrdersFilter()
+	// 与“我的”页订单入口联动；从详情页返回时保留当前筛选
+	const nextFilter = takeOrdersFilter()
+	if (nextFilter !== null) filt.value = nextFilter
 	loadList()
 })
 

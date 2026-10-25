@@ -57,12 +57,13 @@ export function makeOrderNo() {
 
 /**
  * 保存新订单
- * @param {{drink: import('./drinks').Drink, ice: string, sugar: string, toppings: Array<{name: string, price: number}>, count: number, mode?: string, coupon?: number}} payload
+ * @param {{drink: import('./drinks').Drink, ice: string, sugar: string, toppings: Array<{name: string, price: number}>, count: number, mode?: string, coupon?: number, packFee?: number}} payload
  * @returns {Order} 已保存的订单
  */
-export function saveOrder({ drink, ice, sugar, toppings = [], count, mode = '自取', coupon = 0 }) {
+export function saveOrder({ drink, ice, sugar, toppings = [], count, mode = '自取', coupon = 0, packFee }) {
 	const toppingPrice = toppings.reduce((sum, item) => sum + item.price, 0)
-	const total = Math.max(0, (drink.price + toppingPrice) * count - coupon)
+	const fee = packFee != null ? packFee : mode === '自取' ? 1 : 4
+	const total = Math.max(0, (drink.price + toppingPrice) * count + fee - coupon)
 
 	/** @type {Order} */
 	const order = {

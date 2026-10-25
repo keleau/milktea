@@ -95,6 +95,7 @@ const submitting = ref(false)
 
 onLoad(() => {
 	draft.value = getCheckoutDraft()
+	if (draft.value && draft.value.mode === '外送') mode.value = '外送'
 })
 
 onShow(() => {
@@ -132,7 +133,8 @@ const submitOrder = () => {
 		toppings: draft.value.toppings,
 		count: draft.value.count,
 		mode: mode.value,
-		coupon: couponCut.value
+		coupon: couponCut.value,
+		packFee: packFee.value
 	})
 	clearCheckoutDraft()
 	setTimeout(() => {

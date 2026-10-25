@@ -1,11 +1,11 @@
 <template>
 	<view class="page">
-		<!-- ① 顶栏：自取 | 外卖 + 搜索（右侧留给微信胶囊） -->
+		<!-- ① 顶栏：自取 | 外送 + 搜索（右侧留给微信胶囊） -->
 		<view class="topbar" :style="{ paddingTop: safeTop, paddingRight: capPad + 'px' }">
 			<view class="mode">
 				<text class="mode-t" :class="{ on: mode === '自取' }" @tap="mode = '自取'">自取</text>
 				<view class="mode-div"></view>
-				<text class="mode-t" :class="{ on: mode === '外卖' }" @tap="mode = '外卖'">外卖</text>
+				<text class="mode-t" :class="{ on: mode === '外送' }" @tap="mode = '外送'">外送</text>
 			</view>
 			<view class="tb-actions">
 				<view class="tb-search" hover-class="hv" @tap="onSearch">
@@ -520,7 +520,7 @@ const checkout = () => {
 }
 
 const toDetail = (id) => {
-	uni.navigateTo({ url: '/pages/detail/index?id=' + id })
+	uni.navigateTo({ url: '/pages/detail/index?id=' + id + '&mode=' + (mode.value === '外送' ? 'delivery' : 'pickup') })
 }
 const onSearch = () => {
 	uni.showToast({ title: '搜索即将上线', icon: 'none' })
