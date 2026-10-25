@@ -1,6 +1,6 @@
 /**
  * 登录与会话
- * - 微信登录：uni.login 拿 code + 本机固定 mock_id，后端生成稳定的模拟账号
+ * - 微信登录：uni.login 拿 code；后端配好 AppSecret 时走真实 code2session，否则用本机 mock_id 生成模拟账号
  * - 演示会员：code=demo → 预置会员 1001（有积分/优惠券/历史订单）
  */
 import { DEMO_LOGIN_CODE, MOCK_ID_KEY } from '@/common/config'
@@ -8,7 +8,7 @@ import { readStorage, writeStorage } from '@/common/utils/storage'
 import { ApiError, redirectToLogin, request, upload } from './request'
 import { clearSession, getAccessToken, getCachedUser, saveSession, saveUser } from './token'
 
-/** 后端未接 code2session，uni.login 的 code 只用来满足接口参数 */
+/** uni.login 获取临时 code；非微信端返回占位值，后端会退回模拟登录 */
 function getWxCode() {
 	return new Promise((resolve) => {
 		// #ifdef MP-WEIXIN
@@ -45,7 +45,7 @@ export async function login(code = DEMO_LOGIN_CODE, mockId = '') {
 	return data.user
 }
 
-/** 微信一键登录（演示环境为模拟身份） */
+/** 微信一键登录：真实 openid 由后端 code2session 换取 */
 export async function loginWithWechat() {
 	const code = await getWxCode()
 	return login(code, getMockId())

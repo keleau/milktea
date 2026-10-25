@@ -4,3 +4,6 @@ pydantic>=2.7
 python-multipart>=0.0.9
 SQLAlchemy>=2.0
 PyMySQL[rsa]>=1.1
+
+# 仅 database/build_table_qrcodes.py 生成桌码时使用
+segno>=1.6
