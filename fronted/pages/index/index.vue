@@ -37,15 +37,15 @@
 		<view class="sheet anim d1">
 			<view class="member-row">
 				<view class="mb-id">
-					<view class="mb-badge">V2</view>
-					<text class="mb-level">银牌猫评员</text>
+					<view class="mb-badge">{{ level.levelCode }}</view>
+					<text class="mb-level">{{ level.levelName }}</text>
 				</view>
 				<view class="mb-stats">
-					<view class="mb-stat"><text class="mb-key">优惠券</text><text class="mb-val">2</text><text class="mb-unit">张</text></view>
+					<view class="mb-stat"><text class="mb-key">优惠券</text><text class="mb-val">{{ user.coupon_count }}</text><text class="mb-unit">张</text></view>
 					<view class="mb-sep"></view>
-					<view class="mb-stat"><text class="mb-key">积分</text><text class="mb-val">320</text></view>
+					<view class="mb-stat"><text class="mb-key">积分</text><text class="mb-val">{{ user.points }}</text></view>
 					<view class="mb-sep"></view>
-					<view class="mb-stat"><text class="mb-key">余额</text><text class="mb-val">8.5</text><text class="mb-unit">元</text></view>
+					<view class="mb-stat"><text class="mb-key">余额</text><text class="mb-val">{{ user.balance }}</text><text class="mb-unit">元</text></view>
 				</view>
 			</view>
 
@@ -126,14 +126,18 @@
 		</view>
 
 		<view class="footer-slogan anim d2">
-			<text>— 四猫茶学园 · {{ store.slogan }} —</text>
+			<text>— 四猫茶学园 · 今天的奶茶，由猫评分 —</text>
 		</view>
 	</view>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
-import { DRINKS, LINES, STORE } from '@/common/data'
+import { onShow } from '@dcloudio/uni-app'
+import { getLines, getProducts } from '@/common/api/catalog'
+import { ensureLogin, fetchMe } from '@/common/api/auth'
+import { levelParts, toDrink } from '@/common/api/adapters'
+import { getCachedUser } from '@/common/api/token'
 
 // 状态栏高度：海报轮播沉浸到状态栏之下
 const statusBarHeight = uni.getSystemInfoSync().statusBarHeight
@@ -142,14 +146,47 @@ const bannerH = 700 + statusBarHeight * 2 + 'rpx'
 const menuBtn = uni.getMenuButtonBoundingClientRect ? uni.getMenuButtonBoundingClientRect() : null
 const contentTop = (menuBtn ? menuBtn.bottom + 12 : statusBarHeight + 54) + 'px'
 
-const store = STORE
+const user = ref(getCachedUser() || { nickname: '猫友', level: '', points: 0, balance: 0, coupon_count: 0 })
+const level = computed(() => levelParts(user.value.level))
+const lines = ref([])
+const recommendations = ref([])
+const recommends = computed(() => recommendations.value)
+const EMPTY_LINE = { id: '', name: '', tag: '', en: '', desc: '', color: '#8b5e3c', bg: '#f3eae0' }
+const lineOf = (id) => lines.value.find(l => l.id === id) || EMPTY_LINE
+
+const loadUser = async () => {
+	try {
+		user.value = await ensureLogin()
+		user.value = await fetchMe()
+	} catch (error) {
+		// 用户信息失败不影响菜单展示
+	}
+}
+const loadCatalog = async () => {
+	try {
+		const [lineList, page] = await Promise.all([
+			getLines(),
+			getProducts({ tab: 'classic', page_size: 100 })
+		])
+		lines.value = lineList
+		const drinks = (page.items || []).map(toDrink)
+		const hot = drinks.filter(d => d.hot)
+		recommendations.value = (hot.length ? hot : drinks).slice(0, 3)
+	} catch (error) {
+		console.warn('[home] 推荐加载失败', error)
+	}
+}
+
+onShow(() => {
+	loadUser()
+	loadCatalog()
+})
+
 // 当前轮播页索引：驱动「海报滑入 → 文字依次入场 → 场景图压轴」的动效时序
 const cur = ref(0)
 const onSlide = (e) => {
 	cur.value = e.detail.current
 }
-const recommends = computed(() => DRINKS.filter(d => d.hot).slice(0, 3))
-const lineOf = (id) => LINES.find(l => l.id === id)
 
 // 海报轮播：三页三色，杯子在右、左上留白放文字（prompt 与预热 URL 严格一致）
 const banners = [

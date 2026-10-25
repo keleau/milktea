@@ -9,12 +9,12 @@
 		<view class="list">
 			<view
 				class="rank-item"
-				v-for="(d, i) in ranked"
+				v-for="d in ranked"
 				:key="d.id"
 				hover-class="hv"
 				@tap="toDetail(d.id)"
 			>
-				<view class="rk-badge" :class="'rk-' + (i + 1)">{{ i + 1 }}</view>
+				<view class="rk-badge" :class="'rk-' + d.rank">{{ d.rank }}</view>
 				<image class="rk-img" :src="d.img" mode="aspectFill"></image>
 				<view class="rk-info">
 					<text class="rk-name">{{ d.name }}</text>
@@ -56,12 +56,34 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
-import { DRINKS, LINES } from '@/common/data'
+import { ref } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
+import { getLines, getRank } from '@/common/api/catalog'
+import { showError } from '@/common/api/request'
+import { toDrink } from '@/common/api/adapters'
 
-const lineOf = (id) => LINES.find(l => l.id === id)
-const ranked = computed(() => [...DRINKS].sort((a, b) => b.paws - a.paws || Number(b.hot) - Number(a.hot)))
-const newDrinks = computed(() => DRINKS.filter(d => d.isNew))
+const lines = ref([])
+const ranked = ref([])
+const newDrinks = ref([])
+const EMPTY_LINE = { id: '', name: '', tag: '', en: '', desc: '', color: '#8b5e3c', bg: '#f3eae0' }
+const lineOf = (id) => lines.value.find(l => l.id === id) || EMPTY_LINE
+
+let loaded = false
+const load = async () => {
+	try {
+		const [lineList, data] = await Promise.all([getLines(), getRank('week')])
+		lines.value = lineList
+		ranked.value = (data.items || []).map(item => ({ ...toDrink(item), rank: item.rank }))
+		newDrinks.value = (data.new_items || []).map(toDrink)
+		loaded = true
+	} catch (error) {
+		showError(error)
+	}
+}
+
+onShow(() => {
+	if (!loaded) load()
+})
 
 const toDetail = (id) => {
 	uni.navigateTo({ url: '/pages/detail/index?id=' + id })

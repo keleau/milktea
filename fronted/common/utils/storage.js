@@ -34,3 +34,18 @@ export function writeStorage(key, value) {
 		return false
 	}
 }
+
+/**
+ * 删除缓存
+ * @param {string} key 缓存键
+ * @returns {boolean} 是否删除成功
+ */
+export function removeStorage(key) {
+	try {
+		uni.removeStorageSync(key)
+		return true
+	} catch (error) {
+		console.warn('[storage] 删除失败:', key, error)
+		return false
+	}
+}

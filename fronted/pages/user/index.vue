@@ -4,31 +4,35 @@
 		<view class="member-card">
 			<view class="mc-top">
 				<view class="avatar-wrap" @tap="changeAvatar">
-					<image class="avatar" :src="localAvatar || '/static/resource/images/avatar.jpg'" mode="aspectFill" />
+					<image class="avatar" :src="avatarSrc" mode="aspectFill" />
 					<view class="avatar-cam">
 						<view class="cam-body"></view>
 						<view class="cam-dot"></view>
 					</view>
+					<view class="avatar-loading" v-if="uploading">上传中</view>
 				</view>
 				<view class="mc-user">
-					<text class="mc-name">{{ nickname }}</text>
+					<view class="mc-name-row">
+						<text class="mc-name">{{ user.nickname || '猫友' }}</text>
+						<text class="mc-edit" @tap="openName">编辑</text>
+					</view>
 					<view class="mc-level">
-						<text class="mcl-badge">V2</text>
-						<text class="mcl-text">银牌猫评员</text>
+						<text class="mcl-badge">{{ level.levelCode }}</text>
+						<text class="mcl-text">{{ level.levelName }}</text>
 					</view>
 				</view>
 			</view>
 			<view class="mc-stats">
 				<view class="ms-item" hover-class="hv" @tap="comingSoon">
-					<text class="ms-num">{{ store.user.points }}</text>
+					<text class="ms-num">{{ user.points }}</text>
 					<text class="ms-label">积分</text>
 				</view>
-				<view class="ms-item" hover-class="hv" @tap="comingSoon">
-					<text class="ms-num">{{ store.user.coupons }}</text>
+				<view class="ms-item" hover-class="hv" @tap="toCoupons">
+					<text class="ms-num">{{ user.coupon_count }}</text>
 					<text class="ms-label">优惠券</text>
 				</view>
 				<view class="ms-item" hover-class="hv" @tap="comingSoon">
-					<text class="ms-num">{{ store.user.balance }}</text>
+					<text class="ms-num">{{ user.balance }}</text>
 					<text class="ms-label">余额（元）</text>
 				</view>
 			</view>
@@ -41,20 +45,20 @@
 				<text class="p-more" hover-class="hv" @tap="toOrders('')">全部 ›</text>
 			</view>
 			<view class="order-grid">
-				<view class="og-item" hover-class="hv" @tap="toOrders('待支付')">
-					<view class="og-icon"><text>¥</text><text v-if="counts['待支付']" class="og-badge">{{ counts['待支付'] }}</text></view>
+				<view class="og-item" hover-class="hv" @tap="toOrders('pending_pay')">
+					<view class="og-icon"><text>¥</text><text v-if="counts.pending_pay" class="og-badge">{{ counts.pending_pay }}</text></view>
 					<text class="og-text">待支付</text>
 				</view>
-				<view class="og-item" hover-class="hv" @tap="toOrders('制作中')">
-					<view class="og-icon"><text>制</text><text v-if="counts['制作中']" class="og-badge">{{ counts['制作中'] }}</text></view>
+				<view class="og-item" hover-class="hv" @tap="toOrders('making')">
+					<view class="og-icon"><text>制</text><text v-if="counts.making" class="og-badge">{{ counts.making }}</text></view>
 					<text class="og-text">制作中</text>
 				</view>
-				<view class="og-item" hover-class="hv" @tap="toOrders('已完成')">
-					<view class="og-icon"><text>完</text><text v-if="counts['已完成']" class="og-badge">{{ counts['已完成'] }}</text></view>
+				<view class="og-item" hover-class="hv" @tap="toOrders('completed')">
+					<view class="og-icon"><text>完</text><text v-if="counts.completed" class="og-badge">{{ counts.completed }}</text></view>
 					<text class="og-text">已完成</text>
 				</view>
-				<view class="og-item" hover-class="hv" @tap="toOrders('已取消')">
-					<view class="og-icon"><text>消</text><text v-if="counts['已取消']" class="og-badge">{{ counts['已取消'] }}</text></view>
+				<view class="og-item" hover-class="hv" @tap="toOrders('cancelled')">
+					<view class="og-icon"><text>消</text><text v-if="counts.cancelled" class="og-badge">{{ counts.cancelled }}</text></view>
 					<text class="og-text">已取消</text>
 				</view>
 			</view>
@@ -62,12 +66,12 @@
 
 		<!-- 功能列表 -->
 		<view class="panel">
-			<view class="cell" hover-class="cell-hv" @tap="comingSoon">
+			<view class="cell" hover-class="cell-hv" @tap="toCoupons">
 				<text class="cell-name">优惠券</text>
-				<text class="cell-extra">{{ store.user.coupons }} 张</text>
+				<text class="cell-extra">{{ user.coupon_count }} 张</text>
 				<text class="cell-arrow">›</text>
 			</view>
-			<view class="cell" hover-class="cell-hv" @tap="comingSoon">
+			<view class="cell" hover-class="cell-hv" @tap="toAddress">
 				<text class="cell-name">收货地址</text>
 				<text class="cell-arrow">›</text>
 			</view>
@@ -85,64 +89,130 @@
 			</view>
 		</view>
 
+		<!-- 昵称弹层 -->
+		<view class="name-mask" v-if="nameOpen" @tap="nameOpen = false">
+			<view class="name-card" @tap.stop>
+				<text class="name-title">修改昵称</text>
+				<input
+					class="name-input"
+					v-model="nameInput"
+					maxlength="20"
+					placeholder="1~20 个字"
+					focus
+				/>
+				<view class="name-actions">
+					<view class="n-cancel" hover-class="hv" @tap="nameOpen = false">取消</view>
+					<view class="n-submit" hover-class="hv" @tap="saveName">{{ nameSaving ? '保存中…' : '保存' }}</view>
+				</view>
+			</view>
+		</view>
+
 		<share :shareModal="shareModalOpen"></share>
 	</view>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
-import { STORE, countByState } from '@/common/data'
+import { ensureLogin, fetchMe, updateNickname, uploadAvatar } from '@/common/api/auth'
+import { getOrderCounts } from '@/common/api/orders'
+import { showError } from '@/common/api/request'
+import { levelParts } from '@/common/api/adapters'
+import { getCachedUser } from '@/common/api/token'
 import { setOrdersFilter } from '@/common/store/session'
 
-const store = STORE
+const user = ref(getCachedUser() || {
+	nickname: '猫友',
+	avatar: '',
+	level: 'V1 新手猫友',
+	points: 0,
+	balance: 0,
+	coupon_count: 0
+})
+const counts = ref({ pending_pay: 0, making: 0, completed: 0, cancelled: 0 })
+const uploading = ref(false)
 
-// 昵称：首次生成本地昵称并持久化
-const nickname = ref(uni.getStorageSync('cat_nickname') || '')
+const level = computed(() => levelParts(user.value.level))
+const avatarSrc = computed(() => user.value.avatar || '/static/resource/images/avatar.jpg')
+
 onShow(() => {
-	if (!nickname.value) {
-		nickname.value = '猫友' + Math.floor(Math.random() * 9000 + 1000)
-		uni.setStorageSync('cat_nickname', nickname.value)
-	}
-	counts.value = countByState()
+	loadProfile()
 })
 
-const counts = ref({ 待支付: 0, 制作中: 0, 已完成: 0, 已取消: 0 })
+const loadProfile = async () => {
+	try {
+		await ensureLogin()
+		const [me, orderCounts] = await Promise.all([fetchMe(), getOrderCounts()])
+		user.value = me
+		counts.value = orderCounts
+	} catch (error) {
+		showError(error)
+	}
+}
 
-// 本地头像（base64 存 storage，不依赖后端）
-const localAvatar = ref(uni.getStorageSync('local_avatar') || '')
 const MAX_SIZE = 2 * 1024 * 1024
 const changeAvatar = () => {
+	if (uploading.value) return
 	uni.chooseMedia({
 		count: 1,
 		mediaType: ['image'],
 		sourceType: ['album', 'camera'],
 		sizeType: ['compressed'],
-		success: (res) => {
+		success: async (res) => {
 			const file = res.tempFiles[0]
 			if (file.size && file.size > MAX_SIZE) {
 				uni.showToast({ title: '图片不能超过 2MB', icon: 'none' })
 				return
 			}
-			uni.getFileSystemManager().readFile({
-				filePath: file.tempFilePath,
-				encoding: 'base64',
-				success: (readRes) => {
-					localAvatar.value = 'data:image/jpeg;base64,' + readRes.data
-					uni.setStorageSync('local_avatar', localAvatar.value)
-					uni.showToast({ title: '头像已更新', icon: 'success' })
-				},
-				fail: () => {
-					uni.showToast({ title: '图片读取失败', icon: 'none' })
-				}
-			})
+			uploading.value = true
+			try {
+				const avatar = await uploadAvatar(file.tempFilePath)
+				user.value = { ...user.value, avatar }
+				uni.showToast({ title: '头像已更新', icon: 'success' })
+			} catch (error) {
+				showError(error)
+			} finally {
+				uploading.value = false
+			}
 		}
 	})
+}
+
+const nameOpen = ref(false)
+const nameInput = ref('')
+const nameSaving = ref(false)
+const openName = () => {
+	nameInput.value = user.value.nickname || ''
+	nameOpen.value = true
+}
+const saveName = async () => {
+	if (nameSaving.value) return
+	const nickname = nameInput.value.trim()
+	if (!nickname) {
+		uni.showToast({ title: '昵称不能为空', icon: 'none' })
+		return
+	}
+	nameSaving.value = true
+	try {
+		user.value = await updateNickname(nickname)
+		nameOpen.value = false
+		uni.showToast({ title: '昵称已更新', icon: 'none' })
+	} catch (error) {
+		showError(error)
+	} finally {
+		nameSaving.value = false
+	}
 }
 
 const toOrders = (filt) => {
 	setOrdersFilter(filt)
 	uni.switchTab({ url: '/pages/order/index' })
+}
+const toCoupons = () => {
+	uni.navigateTo({ url: '/pages/coupon/index' })
+}
+const toAddress = () => {
+	uni.navigateTo({ url: '/pages/address/index' })
 }
 const comingSoon = () => {
 	uni.showToast({ title: '敬请期待', icon: 'none' })
@@ -196,6 +266,20 @@ page {
 	box-sizing: border-box;
 	background: #ffffff;
 }
+.avatar-loading {
+	position: absolute;
+	left: 0;
+	top: 0;
+	width: 120rpx;
+	height: 120rpx;
+	border-radius: 50%;
+	background: rgba(40, 32, 26, 0.5);
+	color: #ffffff;
+	font-size: 20rpx;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
 .avatar-cam {
 	position: absolute;
 	right: 0;
@@ -232,6 +316,18 @@ page {
 .mc-name {
 	font-size: 36rpx;
 	font-weight: bold;
+}
+.mc-name-row {
+	display: flex;
+	align-items: center;
+}
+.mc-edit {
+	margin-left: 16rpx;
+	padding: 2rpx 14rpx;
+	border: 2rpx solid rgba(255, 255, 255, 0.45);
+	border-radius: 999rpx;
+	font-size: 20rpx;
+	opacity: 0.85;
 }
 .mc-level {
 	display: inline-flex;
@@ -371,5 +467,66 @@ page {
 .cell-arrow {
 	font-size: 36rpx;
 	color: #c9c0b7;
+}
+
+/* 昵称弹层 */
+.name-mask {
+	position: fixed;
+	left: 0;
+	right: 0;
+	top: 0;
+	bottom: 0;
+	background: rgba(40, 32, 26, 0.45);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 20;
+}
+.name-card {
+	width: 600rpx;
+	background: #ffffff;
+	border-radius: 36rpx;
+	padding: 36rpx;
+	box-sizing: border-box;
+}
+.name-title {
+	display: block;
+	text-align: center;
+	font-size: 32rpx;
+	font-weight: bold;
+	color: #3d3229;
+}
+.name-input {
+	width: 100%;
+	height: 88rpx;
+	margin-top: 28rpx;
+	padding: 0 24rpx;
+	box-sizing: border-box;
+	background: #faf6f0;
+	border-radius: 20rpx;
+	font-size: 28rpx;
+	color: #3d3229;
+}
+.name-actions {
+	display: flex;
+	margin-top: 28rpx;
+}
+.n-cancel,
+.n-submit {
+	flex: 1;
+	height: 80rpx;
+	line-height: 80rpx;
+	text-align: center;
+	border-radius: 40rpx;
+	font-size: 28rpx;
+}
+.n-cancel {
+	margin-right: 20rpx;
+	background: #f3ece3;
+	color: #6f6258;
+}
+.n-submit {
+	background: #8b5e3c;
+	color: #ffffff;
 }
 </style>

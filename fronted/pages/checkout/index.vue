@@ -3,38 +3,36 @@
 		<!-- 取餐方式 -->
 		<view class="panel">
 			<view class="mode-seg">
-				<view class="seg-item" :class="{ on: mode === '自取' }" @tap="mode = '自取'">
+				<view class="seg-item" :class="{ on: mode === 'pickup' }" @tap="switchMode('pickup')">
 					<text class="seg-t">自取</text>
 					<text class="seg-s">免排队</text>
 				</view>
-				<view class="seg-item" :class="{ on: mode === '外送' }" @tap="mode = '外送'">
+				<view class="seg-item" :class="{ on: mode === 'delivery' }" @tap="switchMode('delivery')">
 					<text class="seg-t">外送</text>
-					<text class="seg-s">周五免配</text>
+					<text class="seg-s">送到家</text>
 				</view>
 			</view>
-			<view class="mode-info">
-				<block v-if="mode === '自取'">
-					<text class="mi-main">{{ store.name }}</text>
-					<text class="mi-sub">出杯约 10 分钟，请留意取餐码</text>
-				</block>
-				<block v-else>
-					<text class="mi-main">星悦广场 · 3 栋 502</text>
-					<text class="mi-sub">张女士 138****8888 · 约 40 分钟送达</text>
-				</block>
+			<view class="mode-info" v-if="mode === 'pickup'">
+				<text class="mi-main">{{ store ? store.name : '门店加载中…' }}</text>
+				<text class="mi-sub">出杯约 {{ preview.estimated_ready_minutes || 10 }} 分钟，请留意取餐码</text>
+			</view>
+			<view class="mode-info addr-box" v-else @tap="toAddress">
+				<text class="mi-main">{{ selectedAddress ? selectedAddress.detail : '请选择收货地址' }}</text>
+				<text class="mi-sub">{{ selectedAddress ? selectedAddress.name + ' ' + selectedAddress.phone : '点击新增或选择地址' }}</text>
 			</view>
 		</view>
 
 		<!-- 订单清单 -->
 		<view class="panel">
 			<text class="p-title">订单清单</text>
-			<view class="od-item">
-				<image class="od-img" :src="draft.drink.img" mode="aspectFill"></image>
+			<view class="od-item" v-for="(it, i) in draft.items" :key="i">
+				<image class="od-img" :src="it.product.img" mode="aspectFill"></image>
 				<view class="od-info">
-					<text class="od-name">{{ draft.drink.name }}</text>
-					<text class="od-spec">{{ draft.ice }} / {{ draft.sugar }}{{ draft.toppings.length ? ' / ' + draft.toppings.map(t => t.name).join('+') : '' }}</text>
-					<text class="od-count">x{{ draft.count }}</text>
+					<text class="od-name">{{ it.product.name }}</text>
+					<text class="od-spec">{{ specText(it) }}</text>
+					<text class="od-count">x{{ it.count }}</text>
 				</view>
-				<view class="od-price">¥{{ (draft.drink.price + tpFee) * draft.count }}</view>
+				<view class="od-price">¥{{ itemAmount(it) }}</view>
 			</view>
 		</view>
 
@@ -59,10 +57,10 @@
 
 		<!-- 价格汇总 -->
 		<view class="panel">
-			<view class="sum-line"><text>小计</text><text>¥{{ subTotal }}</text></view>
-			<view class="sum-line" v-if="couponCut"><text>优惠券抵扣</text><text class="cut">-¥{{ couponCut }}</text></view>
-			<view class="sum-line"><text>{{ mode === '自取' ? '打包费' : '配送费' }}</text><text>¥{{ packFee }}</text></view>
-			<view class="sum-line sum-total"><text>合计</text><view class="t"><text class="t-sym">¥</text><text class="t-num">{{ total }}</text></view></view>
+			<view class="sum-line"><text>小计</text><text>¥{{ preview.subtotal }}</text></view>
+			<view class="sum-line" v-if="preview.coupon_cut"><text>优惠券抵扣</text><text class="cut">-¥{{ preview.coupon_cut }}</text></view>
+			<view class="sum-line"><text>{{ mode === 'pickup' ? '打包费' : '配送费' }}</text><text>¥{{ preview.pack_fee }}</text></view>
+			<view class="sum-line sum-total"><text>合计</text><view class="t"><text class="t-sym">¥</text><text class="t-num">{{ preview.total }}</text></view></view>
 		</view>
 
 		<!-- 底部结算栏 -->
@@ -71,9 +69,9 @@
 			<view class="total">
 				<text class="t-label">合计</text>
 				<text class="t-sym">¥</text>
-				<text class="t-num">{{ total }}</text>
+				<text class="t-num">{{ preview.total }}</text>
 			</view>
-			<view class="go-btn" :class="{ dis: submitting }" hover-class="go-hv" @tap="submitOrder">
+			<view class="go-btn" :class="{ dis: submitting || previewLoading }" hover-class="go-hv" @tap="submitOrder">
 				{{ submitting ? '提交中…' : '提交订单' }}
 			</view>
 		</view>
@@ -83,64 +81,185 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
-import { STORE, COUPONS, saveOrder } from '@/common/data'
-import { getCheckoutDraft, clearCheckoutDraft } from '@/common/store/session'
-
-const store = STORE
+import { getStore } from '@/common/api/catalog'
+import { getAddresses } from '@/common/api/addresses'
+import { createOrder, payOrder, pricePreview } from '@/common/api/orders'
+import { ensureLogin } from '@/common/api/auth'
+import { showError } from '@/common/api/request'
+import { toCoupon, toOrderItems } from '@/common/api/adapters'
+import { clearCheckoutDraft, getCheckoutDraft, takeSelectedAddressId } from '@/common/store/session'
 
 const draft = ref(null)
-const mode = ref('自取')
+const store = ref(null)
+const mode = ref('pickup')
+const addresses = ref([])
+const selectedAddressId = ref(0)
 const couponId = ref(0)
+const usableCoupons = ref([])
 const submitting = ref(false)
+const previewLoading = ref(false)
+const initialized = ref(false)
+const preview = ref({
+	subtotal: 0,
+	pack_fee: 0,
+	coupon_cut: 0,
+	total: 0,
+	estimated_ready_minutes: 0
+})
 
-onLoad(() => {
+const idempotencyKey = `CAT-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+
+const selectedAddress = computed(() => {
+	if (!addresses.value.length) return null
+	return addresses.value.find(a => a.id === selectedAddressId.value)
+		|| addresses.value.find(a => a.is_default)
+		|| addresses.value[0]
+})
+
+const pickDefaultAddress = () => {
+	if (addresses.value.some(a => a.id === selectedAddressId.value)) return
+	const target = addresses.value.find(a => a.is_default) || addresses.value[0]
+	selectedAddressId.value = target ? target.id : 0
+}
+
+const loadAddresses = async () => {
+	try {
+		addresses.value = await getAddresses()
+		pickDefaultAddress()
+	} catch (error) {
+		showError(error)
+	}
+}
+
+onLoad(async () => {
 	draft.value = getCheckoutDraft()
-	if (draft.value && draft.value.mode === '外送') mode.value = '外送'
+	if (!draft.value) return
+	mode.value = draft.value.mode === 'delivery' ? 'delivery' : 'pickup'
+	selectedAddressId.value = draft.value.addressId || 0
+
+	try {
+		await ensureLogin()
+	} catch (error) {
+		showError(error)
+	}
+
+	try {
+		store.value = await getStore(draft.value.storeId)
+	} catch (error) {
+		showError(error)
+	}
+
+	await loadAddresses()
+	initialized.value = true
+	refreshPreview()
 })
 
 onShow(() => {
-	// 直接进入（无草稿）时返回点单页
-	if (!getCheckoutDraft()) {
+	if (!draft.value) {
 		uni.showToast({ title: '请先选择饮品', icon: 'none' })
 		setTimeout(() => uni.switchTab({ url: '/pages/menu/index' }), 600)
+		return
 	}
+	if (!initialized.value) return
+
+	const picked = takeSelectedAddressId()
+	if (picked) selectedAddressId.value = picked
+	loadAddresses()
 })
 
-const tpFee = computed(() => (draft.value ? draft.value.toppings.reduce((s, t) => s + t.price, 0) : 0))
-const subTotal = computed(() => (draft.value ? (draft.value.drink.price + tpFee.value) * draft.value.count : 0))
-const packFee = computed(() => (mode.value === '自取' ? 1 : 4))
-
-const usableCoupons = computed(() =>
-	draft.value ? COUPONS.filter(c => subTotal.value >= c.min) : []
-)
-const couponCut = computed(() => {
-	const c = usableCoupons.value.find(x => x.id === couponId.value)
-	return c ? c.cut : 0
+const buildPayload = () => ({
+	store_id: draft.value.storeId,
+	mode: mode.value,
+	coupon_id: couponId.value || null,
+	items: toOrderItems(draft.value.items)
 })
-const total = computed(() => Math.max(0, subTotal.value + packFee.value - couponCut.value))
 
-const pickCoupon = (c) => {
-	couponId.value = couponId.value === c.id ? 0 : c.id
+let previewSeq = 0
+const refreshPreview = async () => {
+	if (!draft.value) return
+	const seq = ++previewSeq
+	previewLoading.value = true
+	try {
+		const data = await pricePreview(buildPayload())
+		if (seq !== previewSeq) return
+		preview.value = data
+		usableCoupons.value = (data.usable_coupons || []).map(toCoupon)
+	} catch (error) {
+		if (seq !== previewSeq) return
+		// 券被占用/过期/门槛变化：清空重算，不让用户卡在错误态
+		if (couponId.value && [3001, 3002, 3004].includes(error.code)) {
+			couponId.value = 0
+			uni.showToast({ title: error.message, icon: 'none' })
+			refreshPreview()
+			return
+		}
+		showError(error)
+	} finally {
+		if (seq === previewSeq) previewLoading.value = false
+	}
 }
 
-const submitOrder = () => {
-	if (submitting.value) return
+const switchMode = (next) => {
+	if (mode.value === next) return
+	mode.value = next
+	refreshPreview()
+}
+
+const pickCoupon = (coupon) => {
+	couponId.value = couponId.value === coupon.id ? 0 : coupon.id
+	refreshPreview()
+}
+
+const toAddress = () => {
+	uni.navigateTo({ url: '/pages/address/index?select=1' })
+}
+
+const specText = (it) => [it.ice, it.sugar]
+	.concat((it.toppings || []).map(t => t.name))
+	.filter(Boolean)
+	.join(' / ')
+
+const itemAmount = (it) => {
+	const toppingPrice = (it.toppings || []).reduce((s, t) => s + Number(t.price || 0), 0)
+	return Number(((it.product.price + toppingPrice) * it.count).toFixed(2))
+}
+
+const submitOrder = async () => {
+	if (submitting.value || previewLoading.value || !draft.value) return
+	if (mode.value === 'delivery' && !selectedAddress.value) {
+		uni.showToast({ title: '请先选择收货地址', icon: 'none' })
+		toAddress()
+		return
+	}
+
 	submitting.value = true
-	const order = saveOrder({
-		drink: draft.value.drink,
-		ice: draft.value.ice,
-		sugar: draft.value.sugar,
-		toppings: draft.value.toppings,
-		count: draft.value.count,
-		mode: mode.value,
-		coupon: couponCut.value,
-		packFee: packFee.value
-	})
-	clearCheckoutDraft()
-	setTimeout(() => {
-		submitting.value = false
+	try {
+		await ensureLogin()
+		const order = await createOrder({
+			store_id: draft.value.storeId,
+			mode: mode.value,
+			address_id: mode.value === 'delivery' ? selectedAddress.value.id : null,
+			coupon_id: couponId.value || null,
+			remark: '',
+			items: toOrderItems(draft.value.items)
+		}, idempotencyKey)
+		clearCheckoutDraft()
+
+		let paid = false
+		try {
+			await payOrder(order.out_trade_no)
+			paid = true
+		} catch (error) {
+			console.warn('[checkout] 模拟支付失败，可在订单详情继续支付', error)
+		}
 		uni.redirectTo({ url: '/pages/order/order?oid=' + order.out_trade_no })
-	}, 500)
+		if (!paid) {
+			setTimeout(() => uni.showToast({ title: '订单已创建，请在详情页支付', icon: 'none' }), 300)
+		}
+	} catch (error) {
+		showError(error)
+		submitting.value = false
+	}
 }
 </script>
 

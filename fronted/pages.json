@@ -55,6 +55,20 @@
 				"navigationBarTitleText": "我的",
 				"navigationBarBackgroundColor": "#FAF6F0"
 			}
+		},
+		{
+			"path": "pages/coupon/index",
+			"style": {
+				"navigationBarTitleText": "我的优惠券",
+				"navigationBarBackgroundColor": "#FAF6F0"
+			}
+		},
+		{
+			"path": "pages/address/index",
+			"style": {
+				"navigationBarTitleText": "收货地址",
+				"navigationBarBackgroundColor": "#FAF6F0"
+			}
 		}
 	],
 	"tabBar": {

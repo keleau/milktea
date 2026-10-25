@@ -25,7 +25,7 @@
 import paws from '@/components/paws/paws.vue'
 
 defineProps({
-	/** 饮品数据，见 common/data/drinks.js */
+	/** 饮品视图数据，见 common/api/adapters.js toDrink */
 	drink: { type: Object, required: true }
 })
 

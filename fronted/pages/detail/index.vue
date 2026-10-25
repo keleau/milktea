@@ -7,12 +7,12 @@
 		<view class="info-card">
 			<view class="row1">
 				<text class="d-name">{{ drink.name }}</text>
-				<text class="line-tag" :style="{ color: lineOf.color, background: lineOf.bg }">{{ lineOf.tag }}</text>
+				<text class="line-tag" :style="{ color: line.color, background: line.bg }">{{ line.tag }}</text>
 			</view>
 			<view class="row2">
 				<paws :score="drink.paws"></paws>
 				<text class="paws-num">{{ drink.paws }} 爪认证</text>
-				<text class="sold">本月售 {{ 300 + drink.id * 37 }} 杯</text>
+				<text class="sold">库存 {{ drink.stock }} 杯</text>
 			</view>
 			<text class="d-desc">{{ drink.desc }}</text>
 		</view>
@@ -64,9 +64,9 @@
 				<view class="opt-chips">
 					<view
 						v-for="t in toppings"
-						:key="t.name"
+						:key="t.id"
 						class="opt-chip"
-						:class="{ multi: true, on: picked.some(p => p.name === t.name) }"
+						:class="{ multi: true, on: picked.some(p => p.id === t.id) }"
 						@tap="toggleTopping(t)"
 					>
 						{{ t.name }} +{{ t.price }}
@@ -91,61 +91,86 @@
 			<view class="go-btn" hover-class="go-hv" @tap="toCheckout">选好了，去结算</view>
 		</view>
 	</view>
+	<view class="loading" v-else>{{ loadingText }}</view>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import { DRINKS, LINES, ICE_OPTS, SUGAR_OPTS, TOPPINGS } from '@/common/data'
+import { getLines, getProduct } from '@/common/api/catalog'
+import { showError } from '@/common/api/request'
+import { toDrink } from '@/common/api/adapters'
+import { getStoreId } from '@/common/api/token'
 import { setCheckoutDraft } from '@/common/store/session'
 
-const lines = LINES
-const iceOpts = ICE_OPTS
-const sugarOpts = SUGAR_OPTS
-const toppings = TOPPINGS
+const EMPTY_LINE = { id: '', name: '', tag: '', en: '', desc: '', color: '#8b5e3c', bg: '#f3eae0' }
+const lines = ref([])
+const iceOpts = ref([])
+const sugarOpts = ref([])
+const toppings = ref([])
 
 const drink = ref(null)
 const ice = ref('正常冰')
 const sugar = ref('五分糖')
 const picked = ref([])
 const count = ref(1)
-const mode = ref('自取')
+const mode = ref('pickup')
+const loadingText = ref('加载中…')
 
-onLoad((params) => {
-	drink.value = DRINKS.find(d => d.id === Number(params.id)) || DRINKS[0]
-	mode.value = params.mode === 'delivery' ? '外送' : '自取'
+onLoad(async (params) => {
+	mode.value = params.mode === 'delivery' ? 'delivery' : 'pickup'
+	try {
+		const [lineList, detail] = await Promise.all([
+			getLines(),
+			getProduct(Number(params.id))
+		])
+		lines.value = lineList
+		drink.value = toDrink(detail)
+		iceOpts.value = detail.ice_options || []
+		sugarOpts.value = detail.sugar_options || []
+		toppings.value = detail.toppings || []
+		ice.value = iceOpts.value.includes('正常冰') ? '正常冰' : (iceOpts.value[0] || '正常冰')
+		sugar.value = sugarOpts.value.includes('五分糖') ? '五分糖' : (sugarOpts.value[0] || '五分糖')
+	} catch (error) {
+		loadingText.value = '饮品加载失败'
+		showError(error)
+		setTimeout(() => uni.navigateBack(), 800)
+	}
 })
 
-const lineOf = computed(() => LINES.find(l => l.id === drink.value.line))
+const line = computed(() => lines.value.find(l => l.id === drink.value.line) || EMPTY_LINE)
 // 四线评分：自身线 = 自评，其余按固定偏移浮动，保证稳定
 const lineScores = computed(() => {
 	const base = drink.value.paws
 	const offsets = [-1, 0, 1, 0]
-	return LINES.map((l, i) => {
+	return lines.value.map((l, i) => {
 		if (l.id === drink.value.line) return base
 		return Math.min(5, Math.max(1, base + offsets[i]))
 	})
 })
 
 const total = computed(() => {
-	const tp = picked.value.reduce((s, t) => s + t.price, 0)
-	return (drink.value.price + tp) * count.value
+	const tp = picked.value.reduce((s, t) => s + Number(t.price || 0), 0)
+	return Number(((drink.value.price + tp) * count.value).toFixed(2))
 })
 
 const toggleTopping = (t) => {
-	const i = picked.value.findIndex(p => p.name === t.name)
+	const i = picked.value.findIndex(p => p.id === t.id)
 	if (i > -1) picked.value.splice(i, 1)
-	else picked.value.push({ name: t.name, price: t.price })
+	else picked.value.push(t)
 }
 
 const toCheckout = () => {
 	setCheckoutDraft({
-		drink: drink.value,
-		ice: ice.value,
-		sugar: sugar.value,
-		toppings: picked.value.slice(),
-		count: count.value,
-		mode: mode.value
+		storeId: getStoreId(),
+		mode: mode.value,
+		items: [{
+			product: drink.value,
+			ice: ice.value,
+			sugar: sugar.value,
+			toppings: picked.value.slice(),
+			count: count.value
+		}]
 	})
 	uni.navigateTo({ url: '/pages/checkout/index' })
 }
@@ -158,6 +183,12 @@ page {
 .page {
 	min-height: 100vh;
 	padding-bottom: 200rpx;
+}
+.loading {
+	padding-top: 300rpx;
+	text-align: center;
+	font-size: 28rpx;
+	color: #8c8177;
 }
 
 .hero {

@@ -19,19 +19,19 @@
 		<view class="list" v-if="list.length">
 			<view class="od-card" v-for="o in list" :key="o.out_trade_no" hover-class="hv" @tap="toOrder(o.out_trade_no)">
 				<view class="od-head">
-					<text class="od-no">单号 {{ o.out_trade_no.slice(-8) }}</text>
-					<text class="od-state" :class="'st-' + stateClass(o.state)">{{ o.state }}</text>
+					<text class="od-no">单号 {{ o.shortNo }}</text>
+					<text class="od-state" :class="'st-' + stateClass(o.state)">{{ o.stateText }}</text>
 				</view>
 				<view class="od-body">
 					<image class="od-img" :src="o.img" mode="aspectFill"></image>
 					<view class="od-info">
 						<text class="od-name">{{ o.name }}</text>
 						<text class="od-spec">{{ o.spec }}</text>
-						<text class="od-count">x{{ o.count }} · {{ o.mode }}</text>
+						<text class="od-count">x{{ o.count }} · {{ o.modeText }}</text>
 					</view>
 					<view class="od-right">
 						<view class="od-price">¥{{ o.price }}</view>
-						<view class="od-pay" v-if="o.state === '待支付'" hover-class="hv" @tap.stop="toOrder(o.out_trade_no)">去支付</view>
+						<view class="od-pay" v-if="o.state === 'pending_pay'" hover-class="hv" @tap.stop="toOrder(o.out_trade_no)">去支付</view>
 					</view>
 				</view>
 			</view>
@@ -46,28 +46,50 @@
 				<view class="ep-toe ep-t3"></view>
 				<view class="ep-toe ep-t4"></view>
 			</view>
-			<text class="empty-text">{{ filt ? '暂无「' + filt + '」订单' : '还没有订单，去点一杯吧' }}</text>
+			<text class="empty-text">{{ filt ? '暂无「' + filtName + '」订单' : '还没有订单，去点一杯吧' }}</text>
 			<view class="empty-btn" hover-class="hv" @tap="toMenu">去点单</view>
 		</view>
 	</view>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
-import { getOrders } from '@/common/data'
+import { getOrders as fetchOrders } from '@/common/api/orders'
+import { ensureLogin } from '@/common/api/auth'
+import { showError } from '@/common/api/request'
 import { takeOrdersFilter } from '@/common/store/session'
 
 const tabs = [
 	{ id: '', name: '全部' },
-	{ id: '待支付', name: '待支付' },
-	{ id: '制作中', name: '制作中' },
-	{ id: '已完成', name: '已完成' },
-	{ id: '已取消', name: '已取消' }
+	{ id: 'pending_pay', name: '待支付' },
+	{ id: 'making', name: '制作中' },
+	{ id: 'completed', name: '已完成' },
+	{ id: 'cancelled', name: '已取消' }
 ]
 
 const filt = ref('')
 const list = ref([])
+const loading = ref(false)
+const filtName = computed(() => (tabs.find(t => t.id === filt.value) || tabs[0]).name)
+
+let loadSeq = 0
+const loadList = async () => {
+	const seq = ++loadSeq
+	loading.value = true
+	try {
+		await ensureLogin()
+		const data = await fetchOrders({ state: filt.value || undefined, pageSize: 50 })
+		if (seq !== loadSeq) return
+		list.value = data.items || []
+	} catch (error) {
+		if (seq !== loadSeq) return
+		list.value = []
+		showError(error)
+	} finally {
+		if (seq === loadSeq) loading.value = false
+	}
+}
 
 onShow(() => {
 	// 与“我的”页订单入口联动；从详情页返回时保留当前筛选
@@ -76,11 +98,6 @@ onShow(() => {
 	loadList()
 })
 
-const loadList = () => {
-	const all = getOrders()
-	list.value = filt.value ? all.filter(o => o.state === filt.value) : all
-}
-
 const onFilterChange = (id) => {
 	if (filt.value === id) return
 	filt.value = id
@@ -88,10 +105,10 @@ const onFilterChange = (id) => {
 }
 
 const stateClass = (state) => ({
-	待支付: 'warn',
-	制作中: 'make',
-	已完成: 'done',
-	已取消: 'cancel'
+	pending_pay: 'warn',
+	making: 'make',
+	completed: 'done',
+	cancelled: 'cancel'
 }[state] || 'cancel')
 
 const toOrder = (no) => {

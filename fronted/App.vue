@@ -1,7 +1,10 @@
 <script>
+import { ensureLogin } from './common/api/auth'
+
 export default {
 	onLaunch() {
-		// 四猫茶学园无后端依赖：数据见 common/data，订单走本地 storage
+		// 演示环境静默登录；后端未启动时各页面会给出网络提示，启动后自动恢复
+		ensureLogin().catch(() => {})
 	}
 }
 </script>

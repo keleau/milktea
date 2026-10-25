@@ -1,5 +1,5 @@
 <template>
-	<view class="cp-card" hover-class="hv" @tap="$emit('claim')">
+	<view class="cp-card" hover-class="hv" @tap="$emit('claim', coupon)">
 		<view class="cp-cut">
 			<view class="cp-amt">
 				<text class="cp-sym">¥</text>
@@ -13,13 +13,15 @@
 			<text class="cp-title">{{ coupon.title }}</text>
 			<text class="cp-desc">{{ coupon.desc }} · 点单自动抵扣</text>
 		</view>
-		<view class="cp-btn" hover-class="hv" @tap.stop="$emit('claim')">领取</view>
+		<view class="cp-btn" :class="{ claimed: coupon.claimed }" hover-class="hv" @tap.stop="$emit('claim', coupon)">
+			{{ coupon.claimed ? '已领取' : '领取' }}
+		</view>
 	</view>
 </template>
 
 <script setup>
 defineProps({
-	/** 优惠券数据，见 common/data/shop.js */
+	/** 优惠券模板，见 common/api/adapters.js toCouponTemplate */
 	coupon: { type: Object, required: true }
 })
 
@@ -113,5 +115,9 @@ defineEmits(['claim'])
 	color: #ffffff;
 	font-size: 22rpx;
 	font-weight: 500;
+}
+.cp-btn.claimed {
+	background: #ddd2c5;
+	box-shadow: none;
 }
 </style>

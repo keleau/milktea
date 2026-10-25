@@ -23,12 +23,12 @@
 					<text class="st-arrow">›</text>
 				</view>
 				<view class="st-meta">
-					<text class="st-dist-t">距您 205m</text>
+					<text class="st-dist-t">距您 {{ selStore.dist }}</text>
 					<text class="st-dot">·</text>
-					<text class="st-status">即将休息</text>
+					<text class="st-status">{{ selStore.statusText }}</text>
 					<view class="st-live">
 						<view class="st-live-dot"></view>
-						<text class="st-live-t">当前 {{ makingCups }} 杯制作中</text>
+						<text class="st-live-t">当前 {{ selStore.makingCups }} 杯制作中</text>
 					</view>
 				</view>
 			</view>
@@ -70,18 +70,18 @@
 								<text class="pb-tag">新朋友专享</text>
 								<view class="pb-title"><text class="pb-big">首单立减 3 元</text></view>
 								<text class="pb-sub2">第二杯半价 · 券包每周三更新</text>
-								<view class="pb-btn" hover-class="hv" @tap="onCoupon">一键领取</view>
+								<view class="pb-btn" hover-class="hv" @tap="claimAll">一键领取</view>
 							</view>
 						</view>
 						<view class="cp-head">
 							<text class="cp-h-t">可领券包</text>
-							<text class="cp-h-s">{{ coupons.length }} 张待领取</text>
+							<text class="cp-h-s">{{ unclaimedCount }} 张待领取</text>
 						</view>
 						<coupon-ticket
 							v-for="cp in coupons"
 							:key="cp.id"
 							:coupon="cp"
-							@claim="onCoupon"
+							@claim="onClaim"
 						/>
 					</view>
 
@@ -99,7 +99,7 @@
 							@spec="openSpec"
 						/>
 					</view>
-					<view class="no-drink" v-if="!sections.length">这个分区暂时没有饮品，看看别的吧</view>
+					<view class="no-drink" v-if="!sections.length">{{ loading ? '菜单加载中…' : '这个分区暂时没有饮品，看看别的吧' }}</view>
 					<view class="list-pad" :class="{ withCart: cartCount }"></view>
 				</view>
 			</scroll-view>
@@ -115,13 +115,13 @@
 				</view>
 				<scroll-view scroll-y class="cpn-list">
 					<view class="cpn-item" v-for="(it, i) in cart" :key="i">
-						<image class="cpn-img" :src="it.drink.img" mode="aspectFill"></image>
+						<image class="cpn-img" :src="it.product.img" mode="aspectFill"></image>
 						<view class="cpn-mid">
-							<text class="cpn-name">{{ it.drink.name }}</text>
+							<text class="cpn-name">{{ it.product.name }}</text>
 							<text class="cpn-spec">{{ itemSpec(it) }}</text>
 						</view>
 						<view class="cpn-right">
-							<text class="cpn-price">¥{{ (it.drink.price + it.topTotal) * it.count }}</text>
+							<text class="cpn-price">¥{{ itemTotal(it) }}</text>
 							<text class="cpn-count">×{{ it.count }}</text>
 						</view>
 						<view class="cpn-del" hover-class="hv" @tap.stop="removeItem(i)">删除</view>
@@ -175,7 +175,7 @@
 				<view class="ss-radio" :class="{ on: selStoreId === st.id }"></view>
 				<view class="ss-mid">
 					<text class="ss-name">{{ st.name }}</text>
-					<text class="ss-area">{{ st.area }} · {{ st.dist }} · 营业中</text>
+					<text class="ss-area">{{ st.area }} · {{ st.dist }} · {{ st.statusText }}</text>
 				</view>
 				<text class="ss-cur" v-if="selStoreId === st.id">当前</text>
 			</view>
@@ -231,7 +231,7 @@
 					<view class="sp-chips">
 						<view
 							v-for="tp in toppings"
-							:key="tp.name"
+							:key="tp.id"
 							class="sp-chip"
 							:class="{ on: hasTop(tp) }"
 							hover-class="hv"
@@ -266,15 +266,25 @@
 
 <script setup>
 import { ref, computed, nextTick, onMounted, getCurrentInstance, watch } from 'vue'
-import { DRINKS, LINES, STORE, COUPONS, ICE_OPTS, SUGAR_OPTS, TOPPINGS, saveOrder } from '@/common/data'
 import ProductCard from '@/components/menu/product-card.vue'
 import CouponTicket from '@/components/menu/coupon-ticket.vue'
 import CategoryRail from '@/components/menu/category-rail.vue'
+import { getLines, getOptions, getProducts, getStores } from '@/common/api/catalog'
+import { claimCoupon, getTemplates } from '@/common/api/coupons'
+import { ensureLogin } from '@/common/api/auth'
+import { showError } from '@/common/api/request'
+import { toDrink } from '@/common/api/adapters'
+import { getStoreId, saveStoreId } from '@/common/api/token'
+import { setCheckoutDraft } from '@/common/store/session'
 
-const coupons = COUPONS
-const iceOpts = ICE_OPTS
-const sugarOpts = SUGAR_OPTS
-const toppings = TOPPINGS
+const lines = ref([])
+const products = ref([])
+const iceOpts = ref([])
+const sugarOpts = ref([])
+const toppings = ref([])
+const coupons = ref([])
+const loading = ref(false)
+const unclaimedCount = computed(() => coupons.value.filter((cp) => !cp.claimed).length)
 
 // 沉浸式顶栏
 const sys = uni.getSystemInfoSync()
@@ -298,7 +308,6 @@ const scrollTop = ref(0)
 let secTops = []
 let listViewH = 0
 let linkLock = 0
-const makingCups = 4
 
 const tabs = [
 	{ id: 'classic', name: '经典菜单' },
@@ -308,37 +317,33 @@ const tabs = [
 ]
 
 const pickTab = (id) => {
+	if (tabId.value === id) return
 	tabId.value = id
 	sideId.value = 'all'
 	scrollInto.value = ''
+	loadProducts()
 }
 
 // 门店（点门店行 → 地图选店弹层切换）
-const stores = [
-	{ id: 1, name: '四猫茶学园·星悦广场店', area: '星悦广场 1F', dist: '距您 205m' },
-	{ id: 2, name: '四猫茶学园·万象城店', area: '万象城 L2', dist: '距您 1.2km' },
-	{ id: 3, name: '四猫茶学园·大学城店', area: '大学城美食街 B1', dist: '距您 2.4km' }
-]
-const selStoreId = ref(1)
-const selStore = computed(() => stores.find(s => s.id === selStoreId.value))
+const stores = ref([])
+const selStoreId = ref(getStoreId())
+const fallbackStore = { id: 0, name: '四猫茶学园', area: '', dist: '', statusText: '', makingCups: 0 }
+const selStore = computed(() => stores.value.find(s => s.id === selStoreId.value) || stores.value[0] || fallbackStore)
 const storePick = ref(false)
 const pickStore = (st) => {
 	selStoreId.value = st.id
+	saveStoreId(st.id)
 	storePick.value = false
+	loadProducts()
 }
 
-// 页签候选池：经典=全部；会员专享价=有会员价；新品=isNew；我的常点=5爪
-const tabDrinks = computed(() => {
-	if (tabId.value === 'member') return DRINKS.filter(d => d.orig)
-	if (tabId.value === 'new') return DRINKS.filter(d => d.isNew)
-	if (tabId.value === 'mine') return DRINKS.filter(d => d.paws === 5)
-	return DRINKS
-})
+// 页签候选池由后端返回；classic=全部，会员/新品/常点由后端筛选
+const tabDrinks = computed(() => products.value)
 
 // 左侧 9 个分类（券包特惠置顶，NEW/HOT 角标数据驱动）
 const categories = computed(() => {
 	const pool = tabDrinks.value
-	const lineCats = LINES.map(l => ({
+	const lineCats = lines.value.map(l => ({
 		id: l.id,
 		name: l.tag + '系列',
 		isNew: pool.some(d => d.line === l.id && d.isNew),
@@ -371,10 +376,10 @@ const EXTRA_SEC = {
 	member: { name: '会员专享价', desc: '会员直降，不限单', color: '#8B5E3C' }
 }
 
-// 连续分节：四个产品线常驻 + 经典页签追加人气/新品/会员汇总节，一直滑到底都有商品
+// 连续分节：四条产品线常驻 + 经典页签追加人气/新品/会员汇总节，一直滑到底都有商品
 const sections = computed(() => {
 	const pool = tabDrinks.value
-	const list = LINES.map(l => ({
+	const list = lines.value.map(l => ({
 		...l,
 		name: l.tag + '系列',
 		drinks: pool.filter(d => d.line === l.id)
@@ -439,7 +444,61 @@ const remeasure = () => {
 	setTimeout(measureSecTops, 350)
 }
 
-onMounted(remeasure)
+// 后端数据
+const loadBase = async () => {
+	const [lineList, options] = await Promise.all([getLines(), getOptions()])
+	lines.value = lineList
+	iceOpts.value = options.ice_options || []
+	sugarOpts.value = options.sugar_options || []
+	toppings.value = options.toppings || []
+}
+const loadStores = async () => {
+	stores.value = await getStores()
+	if (!stores.value.some(st => st.id === selStoreId.value) && stores.value.length) {
+		selStoreId.value = stores.value[0].id
+		saveStoreId(selStoreId.value)
+	}
+}
+const loadCoupons = async () => {
+	try {
+		await ensureLogin().catch(() => {})
+		coupons.value = await getTemplates()
+	} catch (error) {
+		console.warn('[menu] 券模板加载失败', error)
+	}
+}
+const loadProducts = async () => {
+	loading.value = true
+	try {
+		if (tabId.value === 'mine') await ensureLogin()
+		const data = await getProducts({
+			tab: tabId.value,
+			store_id: selStoreId.value,
+			page_size: 100
+		})
+		products.value = (data.items || []).map(toDrink)
+		remeasure()
+	} catch (error) {
+		products.value = []
+		if (tabId.value === 'mine' && error.code === 1002) {
+			uni.showToast({ title: '登录后查看我的常点', icon: 'none' })
+		} else {
+			showError(error)
+		}
+	} finally {
+		loading.value = false
+	}
+}
+
+onMounted(async () => {
+	try {
+		await Promise.all([loadBase(), loadStores()])
+	} catch (error) {
+		showError(error)
+	}
+	loadCoupons()
+	loadProducts()
+})
 // 切页签：列表重挂载并回到顶部，重新量取分节位置
 watch(tabId, () => {
 	scrollTop.value = 0
@@ -449,7 +508,8 @@ watch(tabId, () => {
 watch(() => sections.value.map((sec) => sec.id).join(','), remeasure)
 
 // 按产品线分节，空节隐藏
-const lineOf = (id) => LINES.find(l => l.id === id)
+const EMPTY_LINE = { id: '', name: '', tag: '', en: '', desc: '', color: '#8b5e3c', bg: '#f3eae0' }
+const lineOf = (id) => lines.value.find(l => l.id === id) || EMPTY_LINE
 
 // ===== 规格弹层 =====
 const specDrink = ref(null)
@@ -460,15 +520,15 @@ const spCount = ref(1)
 
 const openSpec = (dk) => {
 	specDrink.value = dk
-	spIce.value = '正常冰'
-	spSugar.value = '七分糖'
+	spIce.value = iceOpts.value.includes('正常冰') ? '正常冰' : (iceOpts.value[0] || '正常冰')
+	spSugar.value = sugarOpts.value.includes('七分糖') ? '七分糖' : (sugarOpts.value[0] || '七分糖')
 	spTops.value = []
 	spCount.value = 1
 }
 const closeSpec = () => { specDrink.value = null }
-const hasTop = (tp) => spTops.value.some(t => t.name === tp.name)
+const hasTop = (tp) => spTops.value.some(t => t.id === tp.id)
 const toggleTop = (tp) => {
-	const i = spTops.value.findIndex(t => t.name === tp.name)
+	const i = spTops.value.findIndex(t => t.id === tp.id)
 	if (i > -1) spTops.value.splice(i, 1)
 	else spTops.value.push(tp)
 }
@@ -479,44 +539,66 @@ const spSpecText = computed(() => [spIce.value, spSugar.value].concat(spTops.val
 
 // ===== 购物车 =====
 const cart = ref([])
+const cartOpen = ref(false)
+const toppingTotal = (it) => (it.toppings || []).reduce((s, t) => s + Number(t.price || 0), 0)
+const itemTotal = (it) => Number(((it.product.price + toppingTotal(it)) * it.count).toFixed(2))
 const cartCount = computed(() => cart.value.reduce((s, it) => s + it.count, 0))
-const cartTotal = computed(() => cart.value.reduce((s, it) => s + (it.drink.price + it.topTotal) * it.count, 0))
-const cartSave = computed(() => cart.value.reduce((s, it) => s + (it.drink.orig ? (it.drink.orig - it.drink.price) * it.count : 0), 0))
+const cartTotal = computed(() => Number(cart.value.reduce((s, it) => s + itemTotal(it), 0).toFixed(2)))
+const cartSave = computed(() => Number(cart.value.reduce(
+	(s, it) => s + (it.product.orig ? (it.product.orig - it.product.price) * it.count : 0),
+	0
+).toFixed(2)))
+
+const orderMode = () => (mode.value === '外送' ? 'delivery' : 'pickup')
 
 const addCart = () => {
 	cart.value.push({
-		drink: specDrink.value,
+		product: specDrink.value,
 		ice: spIce.value,
 		sugar: spSugar.value,
-		tops: spTops.value.map(t => t.name),
-		topTotal: spTopTotal.value,
+		toppings: spTops.value.slice(),
 		count: spCount.value
 	})
 	closeSpec()
 	uni.showToast({ title: '已加入购物车', icon: 'none' })
 }
 const buyNow = () => {
-	saveOrder({ drink: specDrink.value, ice: spIce.value, sugar: spSugar.value, toppings: spTops.value, count: spCount.value, mode: mode.value })
+	setCheckoutDraft({
+		storeId: selStoreId.value,
+		mode: orderMode(),
+		items: [{
+			product: specDrink.value,
+			ice: spIce.value,
+			sugar: spSugar.value,
+			toppings: spTops.value.slice(),
+			count: spCount.value
+		}]
+	})
 	closeSpec()
-	uni.switchTab({ url: '/pages/order/index' })
+	uni.navigateTo({ url: '/pages/checkout/index' })
 }
-const cartOpen = ref(false)
 const toggleCart = () => { cartOpen.value = !cartOpen.value }
-const itemSpec = (it) => [it.ice, it.sugar].concat(it.tops).join('·')
+const itemSpec = (it) => [it.ice, it.sugar].concat((it.toppings || []).map(t => t.name)).join('·')
 const removeItem = (i) => {
 	cart.value.splice(i, 1)
 	if (!cart.value.length) cartOpen.value = false
 }
 const checkout = () => {
 	if (!cart.value.length) return
-	cart.value.forEach(it => saveOrder({
-		drink: it.drink, ice: it.ice, sugar: it.sugar,
-		toppings: TOPPINGS.filter(t => it.tops.includes(t.name)),
-		count: it.count, mode: mode.value
-	}))
+	setCheckoutDraft({
+		storeId: selStoreId.value,
+		mode: orderMode(),
+		items: cart.value.map(it => ({
+			product: it.product,
+			ice: it.ice,
+			sugar: it.sugar,
+			toppings: it.toppings.slice(),
+			count: it.count
+		}))
+	})
 	cart.value = []
 	cartOpen.value = false
-	uni.switchTab({ url: '/pages/order/index' })
+	uni.navigateTo({ url: '/pages/checkout/index' })
 }
 
 const toDetail = (id) => {
@@ -525,8 +607,52 @@ const toDetail = (id) => {
 const onSearch = () => {
 	uni.showToast({ title: '搜索即将上线', icon: 'none' })
 }
-const onCoupon = () => {
-	uni.showToast({ title: '领券中心即将上线', icon: 'none' })
+
+// ===== 领券 =====
+const claiming = ref(false)
+const claimOne = async (cp) => {
+	if (!cp || cp.claimed || claiming.value) return
+	claiming.value = true
+	try {
+		await ensureLogin()
+		await claimCoupon(cp.id)
+		cp.claimed = true
+		uni.showToast({ title: '领取成功', icon: 'none' })
+	} catch (error) {
+		if (error.code === 3003) cp.claimed = true
+		showError(error)
+	} finally {
+		claiming.value = false
+	}
+}
+const onClaim = (cp) => {
+	claimOne(cp)
+}
+const claimAll = async () => {
+	if (claiming.value) return
+	const targets = coupons.value.filter(cp => !cp.claimed)
+	if (!targets.length) {
+		uni.showToast({ title: '券已全部领取', icon: 'none' })
+		return
+	}
+	claiming.value = true
+	try {
+		await ensureLogin()
+		for (const cp of targets) {
+			try {
+				await claimCoupon(cp.id)
+				cp.claimed = true
+			} catch (error) {
+				if (error.code === 3003) cp.claimed = true
+				else throw error
+			}
+		}
+		uni.showToast({ title: '领取成功', icon: 'none' })
+	} catch (error) {
+		showError(error)
+	} finally {
+		claiming.value = false
+	}
 }
 </script>
 
