@@ -630,7 +630,30 @@ curl -s "$BASE/orders?state=pending_pay" -H "Authorization: Bearer $TOKEN"
 
 本仓库是 HBuilderX 工程，未提供可直接运行的 CLI/H5 构建依赖，因此页面级交互未在浏览器或微信开发者工具中实际点击验证。请按 8.2 检查点运行一遍；重点看头像上传（`uni.chooseMedia` + `uni.uploadFile`）和真实机型上的图片域名（`config.js` 的 `API_BASE_URL`、后端 `.env` 的 `BASE_URL` 需同时改为局域网 IP）。
 
-### 11.4 微信开发者工具控制台排障（2026-10-25）
+### 11.4 让微信开发者工具加载后端真实图片（HTTPS）
+
+微信 `<image>` 只接受 HTTPS；开发者工具里的「不校验合法域名」只放开 `uni.request` / `uni.uploadFile`，不会放开图片组件。所以想让小程序显示后端 `static/images` 里的图，必须让后端也走 HTTPS：
+
+1. 生成自签名证书（Git Bash，在 `fastapi_demo` 目录执行）：
+   ```bash
+   mkdir -p certs
+   MSYS_NO_PATHCONV=1 openssl req -x509 -newkey rsa:2048 -nodes -days 365 \
+     -keyout certs/key.pem -out certs/cert.pem \
+     -subj "/CN=127.0.0.1" -addext "subjectAltName=IP:127.0.0.1,DNS:localhost"
+   ```
+2. 后端 `.env` 增加一行 `BASE_URL=https://127.0.0.1:8000`（已有 `DATABASE_URL` 不用动）。
+3. 停掉原来的 HTTP 服务，改成 HTTPS 启动：
+   ```bash
+   .venv/Scripts/python -m uvicorn main:app --host 0.0.0.0 --port 8000 \
+     --ssl-keyfile certs/key.pem --ssl-certfile certs/cert.pem
+   ```
+4. 前端 `common/config.js` 改成 `API_BASE_URL = 'https://127.0.0.1:8000'`。
+5. 微信开发者工具：详情 → 本地设置 → 勾选「不校验合法域名、web-view（业务域名）、TLS 版本以及 HTTPS 证书」，然后重新编译。
+6. 验证：`curl -k https://127.0.0.1:8000/static/images/drink_1.jpg` 返回 200；小程序内商品图地址应为 `https://...`。
+
+`resolveImage()` 现在只把 HTTP 图片映射为本地图；HTTPS 地址会原样交给 `<image>`。`BASE_URL` 与 `API_BASE_URL` 必须协议、主机、端口完全一致，否则图片仍是另一个地址。自签名证书只用于本机开发，真要真机预览时建议换正式 HTTPS 域名或可信证书。不想配 HTTPS 就继续保持现状：商品图用小程序包内本地图，上传头像回退默认头像。
+
+### 11.5 微信开发者工具控制台排障（2026-10-25）
 
 - **ENOENT `common/data/index.js` / `common/data/shop.js` / `common/utils/image.js`**：旧增量构建缓存里的文件清单，源码和当前 `unpackage/dist` 都已经不再引用这些模块。重新运行到微信开发者工具（完整编译）即可；若仍出现，在开发者工具执行「工具 → 清缓存 → 全部清除」后重编。构建产物被运行中的 HBuilderX 占用时无法从外部删除，清理由重新编译完成。
 - **`<wx-image> 图片链接 ... 不再支持 HTTP 协议`**：基础库 3.17.4 起 `<image>` 拒绝 HTTP。`adapters.js` 新增 `resolveImage()`，把后端 `http://.../static/images/drink_*.jpg`、`avatar.jpg` 映射为包内 `/static/resource/images/*`；订单详情 `items[].image` 同样映射。上传头像属于运行时文件，微信端先显示本地预览、重启后回退默认头像，正式部署需 HTTPS。

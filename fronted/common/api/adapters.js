@@ -34,9 +34,11 @@ const LOCAL_IMAGE_FILES = new Set([
 export function resolveImage(url, fallback = '') {
 	const value = String(url || '')
 	if (!value) return fallback
+	// HTTPS 图片小程序可以直接加载，保留后端真实地址
+	if (value.startsWith('https://')) return value
+	// #ifdef MP-WEIXIN
 	const name = value.split(/[?#]/)[0].split('/').pop()
 	if (LOCAL_IMAGE_FILES.has(name)) return `/static/resource/images/${name}`
-	// #ifdef MP-WEIXIN
 	if (value.startsWith('http://')) return fallback
 	// #endif
 	return value

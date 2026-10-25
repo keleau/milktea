@@ -10,6 +10,9 @@ fastapi_demo/.env
 # 运行时上传的头像
 fastapi_demo/static/avatars/
 
+# 本地 HTTPS 自签名证书（含私钥）
+fastapi_demo/certs/
+
 # SQLite 运行时临时文件（milktea.db 本身保留）
 fastapi_demo/database/*.db-journal
 fastapi_demo/database/*.db-wal
