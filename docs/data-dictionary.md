@@ -523,6 +523,8 @@ python database/build_sqlite.py --force    # 覆盖已有文件
 
 ### 9.3 导入 MySQL
 
+用 Navicat 打开连接后运行 `schema_mysql.sql`，或使用命令行：
+
 ```bash
 mysql -u root -p < fastapi_demo/database/schema_mysql.sql
 ```
@@ -542,6 +544,25 @@ mysql -u root -p < fastapi_demo/database/schema_mysql.sql
 | 时区 | 时间戳与库无关，前端本地化 | 同左 |
 
 > SQLite 的 `NUMERIC(10,2)` 只是亲和类型，底层仍可能按浮点存储；正式环境以 MySQL 的 `DECIMAL(10,2)` 为金额准绳，SQLite 仅用于本地演示。
+
+### 9.5 后端运行时接入
+
+`fastapi_demo` 使用 SQLAlchemy 2.0 ORM，模型定义在 `app/models.py`，字段与本文档一一对应；应用启动时**不会自动建表**，需先准备数据库。
+
+| 环境 | 操作 |
+|---|---|
+| 默认 SQLite | 确保 `fastapi_demo/database/milktea.db` 存在（可用 `build_sqlite.py` 重新生成） |
+| MySQL | 先导入 `schema_mysql.sql`，再在 `fastapi_demo/.env` 中设置 `DATABASE_URL` |
+
+```bash
+# fastapi_demo/.env（不要提交）
+DATABASE_URL=mysql+pymysql://root:你的密码@127.0.0.1:3306/milktea?charset=utf8mb4
+```
+
+- 金额在 ORM 层使用 `Decimal`，接口序列化时转 `float`。
+- 图片字段存相对路径（如 `/static/images/drink_1.jpg`），接口输出时拼接 `BASE_URL`。
+- 订单中的商品、小料、收货地址均为下单时快照；删除地址后 `orders.address_id` 置 NULL，快照字段仍保留用于历史展示。
+- 写操作在请求内提交事务；库存扣减与订单支付使用 `SELECT ... FOR UPDATE`（MySQL 生效）。
 
 ---
 

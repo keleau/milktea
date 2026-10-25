@@ -1,11 +1,15 @@
 import time
 
 from fastapi import APIRouter, Depends, File, Query, UploadFile
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
-import app.data as db
+from app.constants import now_ms
 from app.core.config import settings
 from app.core.response import ApiResponse, BizError, ok
+from app.db import get_db
 from app.deps import get_current_user
+from app.models import Favorite, Product, User
 from app.schemas import (
     AvatarData,
     CouponOut,
@@ -16,30 +20,43 @@ from app.schemas import (
     UserOut,
     UserPatchIn,
 )
+from app.serializers import serialize_coupon, serialize_product, serialize_user
+from app.services.catalog import frequent_product_ids
+from app.services.coupons import count_unused, list_for_user
 
 router = APIRouter(prefix="/users", tags=["用户"])
 
 
-def _coupon_list(user_id: int, status: CouponStatus) -> list[dict]:
-    coupons = db.user_coupons(user_id)
+def _coupon_list(db: Session, user_id: int, status: CouponStatus) -> list[dict]:
+    coupons = list_for_user(db, user_id)
     if status != "all":
-        coupons = [c for c in coupons if c["status"] == status]
-    return sorted(coupons, key=lambda c: (c["status"] != "unused", c["expire_at"]))
+        coupons = [coupon for coupon in coupons if coupon.status == status]
+    coupons.sort(key=lambda coupon: (coupon.status != "unused", coupon.expire_at))
+    return [serialize_coupon(coupon) for coupon in coupons]
 
 
 @router.get("/me", response_model=ApiResponse[UserOut], summary="当前用户信息")
-def get_me(user: dict = Depends(get_current_user)):
-    return ok(db.user_out(user))
+def get_me(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return ok(serialize_user(user, count_unused(db, user.id)))
 
 
 @router.patch("/me", response_model=ApiResponse[UserOut], summary="修改昵称")
-def patch_me(payload: UserPatchIn, user: dict = Depends(get_current_user)):
-    user["nickname"] = payload.nickname.strip()
-    return ok(db.user_out(user))
+def patch_me(
+    payload: UserPatchIn,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    user.nickname = payload.nickname.strip()
+    db.commit()
+    return ok(serialize_user(user, count_unused(db, user.id)))
 
 
 @router.post("/me/avatar", response_model=ApiResponse[AvatarData], summary="上传头像（multipart）")
-async def upload_avatar(file: UploadFile = File(...), user: dict = Depends(get_current_user)):
+async def upload_avatar(
+    file: UploadFile = File(...),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     ext_map = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
     ext = ext_map.get(file.content_type or "")
     if ext is None:
@@ -51,44 +68,59 @@ async def upload_avatar(file: UploadFile = File(...), user: dict = Depends(get_c
         raise BizError(1001, "头像不能超过 2MB", 400)
 
     settings.avatar_dir.mkdir(parents=True, exist_ok=True)
-    filename = f"user_{user['id']}_{int(time.time())}.{ext}"
+    filename = f"user_{user.id}_{int(time.time())}.{ext}"
     (settings.avatar_dir / filename).write_bytes(data)
-    avatar_url = f"{settings.base_url}/static/avatars/{filename}"
-    user["avatar"] = avatar_url
-    return ok({"avatar": avatar_url})
+    user.avatar_path = f"/static/avatars/{filename}"
+    db.commit()
+    return ok({"avatar": f"{settings.base_url}/static/avatars/{filename}"})
 
 
 @router.get("/me/coupons", response_model=ApiResponse[ListData[CouponOut]], summary="我的优惠券")
 def my_coupons(
     status: CouponStatus = Query("all"),
-    user: dict = Depends(get_current_user),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-    return ok({"items": _coupon_list(user["id"], status)})
+    items = _coupon_list(db, user.id, status)
+    db.commit()
+    return ok({"items": items})
 
 
 @router.get("/me/favorites", response_model=ApiResponse[ListData[ProductOut]], summary="我的常点")
-def my_favorites(user: dict = Depends(get_current_user)):
+def my_favorites(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    product_ids = frequent_product_ids(db, user.id)
     products = []
-    for product_id in db.frequent_product_ids(user["id"]):
-        product = db.PRODUCTS_BY_ID.get(product_id)
-        if product is not None and product["on_sale"]:
-            products.append(product)
+    if product_ids:
+        rows = db.scalars(
+            select(Product).where(Product.id.in_(product_ids), Product.on_sale.is_(True))
+        ).all()
+        by_id = {product.id: product for product in rows}
+        products = [serialize_product(by_id[pid]) for pid in product_ids if pid in by_id]
     return ok({"items": products})
 
 
 @router.post("/me/favorites/{product_id}", response_model=ApiResponse[FavoriteOut], summary="收藏商品")
-def add_favorite(product_id: int, user: dict = Depends(get_current_user)):
-    if product_id not in db.PRODUCTS_BY_ID:
+def add_favorite(
+    product_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if db.get(Product, product_id) is None:
         raise BizError(1004, "商品不存在", 404)
-    favorites = db.FAVORITES.setdefault(user["id"], [])
-    if product_id not in favorites:
-        favorites.append(product_id)
+    if db.get(Favorite, (user.id, product_id)) is None:
+        db.add(Favorite(user_id=user.id, product_id=product_id, created_at=now_ms()))
+        db.commit()
     return ok({"product_id": product_id, "favorited": True})
 
 
 @router.delete("/me/favorites/{product_id}", response_model=ApiResponse[FavoriteOut], summary="取消收藏")
-def remove_favorite(product_id: int, user: dict = Depends(get_current_user)):
-    favorites = db.FAVORITES.setdefault(user["id"], [])
-    if product_id in favorites:
-        favorites.remove(product_id)
+def remove_favorite(
+    product_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    favorite = db.get(Favorite, (user.id, product_id))
+    if favorite is not None:
+        db.delete(favorite)
+        db.commit()
     return ok({"product_id": product_id, "favorited": False})

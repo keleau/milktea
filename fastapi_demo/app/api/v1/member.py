@@ -1,8 +1,11 @@
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
 
-import app.data as db
 from app.core.response import ApiResponse, BizError, ok
+from app.db import get_db
 from app.deps import get_current_user
+from app.models import CouponTemplate, ExchangeItem, PointsLog, User
 from app.schemas import (
     ExchangeData,
     ExchangeIn,
@@ -12,37 +15,49 @@ from app.schemas import (
     PageData,
     PointsLogOut,
 )
+from app.serializers import (
+    money,
+    serialize_coupon,
+    serialize_exchange_item,
+    serialize_points_log,
+)
+from app.services.coupons import add_coupon, count_unused
+from app.services.member import change_points, level_text, levels
 
 router = APIRouter(prefix="/member", tags=["会员"])
 
 
 @router.get("/profile", response_model=ApiResponse[MemberProfileOut], summary="会员等级、积分、余额、成长值")
-def profile(user: dict = Depends(get_current_user)):
-    growth = user["points"]
+def profile(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    growth = user.points
+    all_levels = levels(db)
     index = 0
-    for i, (_, threshold) in enumerate(db.MEMBER_LEVELS):
-        if growth >= threshold:
-            index = i
+    for position, level in enumerate(all_levels):
+        if growth >= level.min_points:
+            index = position
 
-    level = db.MEMBER_LEVELS[index][0]
-    current_threshold = db.MEMBER_LEVELS[index][1]
-    if index + 1 < len(db.MEMBER_LEVELS):
-        next_level, next_threshold = db.MEMBER_LEVELS[index + 1]
-        span = next_threshold - current_threshold
-        progress = round((growth - current_threshold) / span, 2) if span else 1.0
+    current = all_levels[index]
+    if index + 1 < len(all_levels):
+        following = all_levels[index + 1]
+        span = following.min_points - current.min_points
+        progress = round((growth - current.min_points) / span, 2) if span else 1.0
+        next_level = level_text(following)
+        next_threshold = following.min_points
     else:
         next_level, next_threshold, progress = None, None, 1.0
 
+    coupon_count = count_unused(db, user.id)
+    db.commit()
     return ok(
         {
-            "level": level,
-            "points": user["points"],
-            "balance": user["balance"],
+            "level": level_text(current),
+            "points": user.points,
+            "balance": money(user.balance),
             "growth": growth,
             "next_level": next_level,
             "next_level_growth": next_threshold,
             "progress": progress,
-            "coupon_count": db.coupon_count(user["id"]),
+            "coupon_count": coupon_count,
         }
     )
 
@@ -51,14 +66,25 @@ def profile(user: dict = Depends(get_current_user)):
 def points_logs(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
-    user: dict = Depends(get_current_user),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-    logs = db.POINTS_LOGS.get(user["id"], [])
-    total = len(logs)
-    start = (page - 1) * page_size
+    total = (
+        db.scalar(
+            select(func.count()).select_from(PointsLog).where(PointsLog.user_id == user.id)
+        )
+        or 0
+    )
+    logs = db.scalars(
+        select(PointsLog)
+        .where(PointsLog.user_id == user.id)
+        .order_by(PointsLog.created_at.desc(), PointsLog.id.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    ).all()
     return ok(
         {
-            "items": logs[start : start + page_size],
+            "items": [serialize_points_log(log) for log in logs],
             "total": total,
             "page": page,
             "page_size": page_size,
@@ -67,22 +93,38 @@ def points_logs(
 
 
 @router.get("/points/items", response_model=ApiResponse[ListData[ExchangeItemOut]], summary="积分兑换商品")
-def exchange_items(user: dict = Depends(get_current_user)):
-    return ok({"items": db.POINT_EXCHANGE_ITEMS})
+def exchange_items(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    items = db.scalars(
+        select(ExchangeItem).order_by(ExchangeItem.sort_order, ExchangeItem.id)
+    ).all()
+    return ok({"items": [serialize_exchange_item(item) for item in items]})
 
 
 @router.post("/points/exchange", response_model=ApiResponse[ExchangeData], summary="积分兑换")
-def exchange(payload: ExchangeIn, user: dict = Depends(get_current_user)):
-    item = db.POINT_EXCHANGE_BY_ID.get(payload.item_id)
+def exchange(
+    payload: ExchangeIn,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    item = db.get(ExchangeItem, payload.item_id)
     if item is None:
         raise BizError(1004, "兑换商品不存在", 404)
-    if user["points"] < item["cost"]:
+    if user.points < item.cost:
         raise BizError(6001, "积分不足", 400)
 
     coupon = None
-    if item["type"] == "coupon":
-        template = db.COUPON_TEMPLATES_BY_ID[item["template_id"]]
-        coupon = db.add_coupon(user["id"], template)
+    if item.item_type == "coupon":
+        template = db.get(CouponTemplate, item.template_id) if item.template_id else None
+        if template is None:
+            raise BizError(1004, "优惠券模板不存在", 404)
+        coupon = add_coupon(db, user.id, template)
 
-    points = db.change_points(user, -item["cost"], f"积分兑换：{item['title']}", "exchange")
-    return ok({"points": points, "coupon": coupon, "message": "兑换成功"})
+    points = change_points(db, user, -item.cost, f"积分兑换：{item.title}", "exchange")
+    db.commit()
+    return ok(
+        {
+            "points": points,
+            "coupon": serialize_coupon(coupon) if coupon is not None else None,
+            "message": "兑换成功",
+        }
+    )

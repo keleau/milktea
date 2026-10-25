@@ -225,6 +225,14 @@ class OrderItemOut(BaseModel):
     amount: float
 
 
+class OrderAddressOut(BaseModel):
+    id: int | None = None
+    name: str
+    phone: str
+    detail: str
+    is_default: bool
+
+
 class ReviewIn(BaseModel):
     rating: int = Field(ge=1, le=5)
     content: str = Field(default="", max_length=200)
@@ -250,7 +258,7 @@ class OrderOut(BaseModel):
     coupon_cut: float
     total: float
     pick_code: str | None = None
-    address: AddressOut | None = None
+    address: OrderAddressOut | None = None
     remark: str
     create_time: int
     pay_time: int | None = None

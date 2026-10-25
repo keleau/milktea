@@ -523,6 +523,7 @@
 > 请求头 `Idempotency-Key` 可选，建议结算页生成 UUID；同一用户 10 分钟内重复提交相同 key 会直接返回首单，不会重复建单/锁券。
 > `pick_code` 在支付成功、进入制作中时生成（5 位数字：`10~99` + 时间戳后 3 位）。
 > 配送单（`mode=delivery`）必须传 `address_id`，否则返回 `1001`。
+> 订单中的 `address` 是下单时的快照。若用户之后删除该地址，`address.id` 返回 `null`，但 `name/phone/detail` 仍保留；`repeat` 也不会再带回已删除的 `address_id`。
 
 **GET /orders** 支持 `state=pending_pay|making|completed|cancelled`，不传返回全部。响应项结构见 2.7。
 
@@ -731,7 +732,7 @@ pending_pay ──支付成功──> making ──制作完成──> completed
 
 ### 6.1 目录结构
 
-> 仓库内的 `fastapi_demo/` 是本节的**可运行简化版**：内存数据、HMAC 签名 token、模拟微信登录/支付，不依赖数据库与 Redis，重启后数据重置。生产环境再按下面结构替换为 SQLAlchemy + Redis。
+> 仓库内的 `fastapi_demo/` 是本节的**可运行简化版**：SQLAlchemy 2.0 ORM 持久化（默认 SQLite，可通过 `DATABASE_URL` 切换 MySQL）、HMAC 签名 token、模拟微信登录/支付；未使用 Redis。生产环境再按下面结构补充缓存、队列与真实微信接口。
 
 ```
 backend/
@@ -766,31 +767,42 @@ backend/
 fastapi_demo/
 ├── main.py                     # 应用入口、异常处理、CORS、静态目录挂载
 ├── requirements.txt
+├── .env.example                # 数据库连接示例（复制为 .env 后填写）
 ├── app/
 │   ├── core/{config,response,security}.py
 │   ├── api/v1/{auth,users,stores,menu,coupons,orders,payments,member,addresses}.py
+│   ├── constants.py            # 冰/糖选项、订单状态文案、时间工具
+│   ├── db.py                   # Engine / SessionLocal / get_db
+│   ├── models.py               # SQLAlchemy 2.0 ORM（16 张表）
 │   ├── schemas.py              # 全部 Pydantic 模型
-│   ├── data.py                 # 种子数据 + 内存存储
+│   ├── serializers.py          # ORM 对象 → 接口 JSON（金额转 float、路径转完整 URL）
 │   ├── deps.py
-│   └── services/{pricing,orders}.py
-├── database/                   # 数据库交付物（当前未接入运行时）
+│   └── services/{pricing,orders,coupons,member,catalog}.py
+├── database/
 │   ├── schema_sqlite.sql
 │   ├── schema_mysql.sql
 │   ├── build_sqlite.py
-│   └── milktea.db
+│   └── milktea.db              # 默认运行时数据库
 └── static/images/              # 12 款饮品图 + 默认头像（复用前端资源）
 ```
 
-启动：
+启动（默认使用 `database/milktea.db`）：
 
 ```bash
 cd fastapi_demo
+python database/build_sqlite.py           # 首次运行，生成 SQLite 库
 python -m uvicorn main:app --reload       # 依赖已装在 .venv 中
 # 接口文档 http://127.0.0.1:8000/docs
 # 演示登录 POST /api/v1/auth/wx-login  {"code": "demo"}
 ```
 
-> `APP_SECRET` 环境变量可覆盖签名密钥；默认 `BASE_URL=http://127.0.0.1:8000` 用于拼接图片/头像完整 URL。
+切换到 MySQL：
+
+1. 在 Navicat 中运行 `database/schema_mysql.sql`（会创建 `milktea` 库并写入种子数据）。
+2. 复制 `.env.example` 为 `.env`，填写 `DATABASE_URL=mysql+pymysql://root:你的密码@127.0.0.1:3306/milktea?charset=utf8mb4`。
+3. 重启服务。`.env` 已被 `.gitignore` 忽略，不会提交密码。
+
+> 环境变量：`DATABASE_URL` 切换数据库，`APP_SECRET` 覆盖签名密钥，`BASE_URL` 用于拼接图片/头像完整 URL，`SQL_ECHO=1` 可打印 SQL。
 
 ### 6.2 关键依赖
 

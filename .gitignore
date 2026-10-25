@@ -4,6 +4,9 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 
+# 本地数据库连接配置（含密码）
+fastapi_demo/.env
+
 # 运行时上传的头像
 fastapi_demo/static/avatars/
 

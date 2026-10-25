@@ -7,11 +7,13 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import inspect
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.v1 import api_router
 from app.core.config import STATIC_DIR, settings
 from app.core.response import BizError, biz_error_handler
+from app.db import engine
 
 logger = logging.getLogger("simaotea")
 STATIC_DIR.mkdir(parents=True, exist_ok=True)
@@ -20,14 +22,19 @@ settings.avatar_dir.mkdir(parents=True, exist_ok=True)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    if not inspect(engine).has_table("users"):
+        logger.warning(
+            "数据库表不存在，请先执行 database/build_sqlite.py 或导入 database/schema_mysql.sql"
+        )
     yield
+    engine.dispose()
 
 
 app = FastAPI(
     title="四猫茶学园 API",
     version="1.0.0",
     description=(
-        "奶茶点单小程序演示后端。数据保存在内存中，重启即重置；"
+        "奶茶点单小程序演示后端。数据存储于数据库（默认 SQLite，可通过 DATABASE_URL 切换 MySQL）；"
         "支付与微信登录均为模拟实现。调用 `POST /api/v1/auth/wx-login` 且 body 为 "
         '`{"code": "demo"}` 可登录预置会员（V2、320 积分、2 张券）。'
     ),
