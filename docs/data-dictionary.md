@@ -243,6 +243,7 @@ sugar_options = ["全糖", "七分糖", "五分糖", "三分糖", "不加糖"]
 | `coupon_cut` | `coupon_cut` | — | DECIMAL/NUMERIC | `>= 0` | 券抵扣 |
 | `total` | `total` | `price` | DECIMAL/NUMERIC | `>= 0` | 实付 = max(0, 小计 + 打包费 - 券) |
 | `pick_code` | `pick_code` | `pick_code` | TEXT | 可空 | 取餐码，支付后生成 |
+| `table_no` | `table_no` | — | TEXT/VARCHAR(8) | 可空 | 堂食桌号（扫码点餐），仅自取单可有 |
 | `address_id` | `address.id` | — | INTEGER | FK → `addresses.id`，删除置空 | 下单时地址 ID |
 | `address_name` | `address.name` | — | TEXT | 可空 | 地址快照 |
 | `address_phone` | `address.phone` | — | TEXT | 可空 | 地址快照 |
@@ -361,6 +362,8 @@ sugar_options = ["全糖", "七分糖", "五分糖", "三分糖", "不加糖"]
 | 订单详情 `pages/order/order` | `milk_orders` | `/orders/{no}`、`/payments/{no}`、`/orders/{no}/cancel`、`/orders/{no}/review`、`/orders/{no}/repeat` |
 | 我的 `pages/user` | `STORE.user`、`milk_orders`、`cat_nickname`、`local_avatar` | `/users/me`、`/member/profile`、`/orders/counts`、`/users/me/coupons` |
 | 排行榜 `pages/rank` | `DRINKS` | `/menu/rank?period=week` |
+| 扫码入口 `pages/index`、`pages/menu` | 静态桌码 | `/tables/resolve` |
+| 店员核销 `pages/staff/verify` | — | `/staff/pickup/lookup`、`/staff/pickup/complete` |
 
 ### 5.1 前端本地存储对照
 
@@ -371,6 +374,8 @@ sugar_options = ["全糖", "七分糖", "五分糖", "三分糖", "不加糖"]
 | `local_avatar` | base64 头像 | 调 `POST /users/me/avatar` 成功后清除 |
 | `session.checkoutDraft` | `{ drink, ice, sugar, toppings, count, mode }` | 仅页面间临时状态，不落库 |
 | `session.ordersFilter` | 中文状态或 `null` | 仅页面跳转临时状态 |
+| `milk_table_context` | `{storeId, storeName, tableNo}` | 扫码堂食上下文，取消堂食或换门店时清除 |
+| `milk_staff_pin` | 店员核销口令 | 仅本机保存，演示用 |
 
 ### 5.2 结算草稿字段映射
 
@@ -382,6 +387,7 @@ sugar_options = ["全糖", "七分糖", "五分糖", "三分糖", "不加糖"]
 | `toppings[].name/price` | `items[].topping_ids[]` | 接入后改为传 ID，服务端计价 |
 | `count` | `items[].count` | 数量 |
 | `mode`（`自取`/`外送`） | `mode`（`pickup`/`delivery`） | 枚举转换 |
+| `tableNo` | `table_no` | 扫码堂食时必填；仅自取单 |
 | — | `store_id` | 当前选中门店 |
 | — | `coupon_id` | 选中的券 |
 | — | `address_id` | 外送必填 |

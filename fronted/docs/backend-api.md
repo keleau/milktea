@@ -195,6 +195,7 @@
 | coupon_cut | float | 券抵扣 |
 | total | float | 实付 |
 | pick_code | string | 取餐码（自取时） |
+| table_no | string? | 堂食桌号（扫码点餐时，如 `A01`；仅自取单可有） |
 | address | Address? | 配送地址（外送时） |
 | remark | string | 备注 |
 | create_time | int | 下单时间 |
@@ -444,6 +445,7 @@
 | POST | `/orders/{out_trade_no}/complete` | 是 | 完成订单（演示用：模拟门店出杯） |
 | POST | `/orders/{out_trade_no}/repeat` | 是 | 再来一单（返回可直接下单的草稿） |
 | POST | `/orders/{out_trade_no}/review` | 是 | 评价（完成后） |
+| GET | `/orders/{out_trade_no}/pickup-qr` | 是 | 取餐二维码（data URI，制作中/已完成可取） |
 
 **POST /orders/price-preview**
 
@@ -523,6 +525,7 @@
 > 请求头 `Idempotency-Key` 可选，建议结算页生成 UUID；同一用户 10 分钟内重复提交相同 key 会直接返回首单，不会重复建单/锁券。
 > `pick_code` 在支付成功、进入制作中时生成（5 位数字：`10~99` + 时间戳后 3 位）。
 > 配送单（`mode=delivery`）必须传 `address_id`，否则返回 `1001`。
+> 桌码点餐时请求加 `"table_no": "A01"`：桌号必须属于该门店且只允许自取单，否则返回 `1004`（桌号不存在）/`1001`（堂食单选了外送）。`price-preview` 不需要传 `table_no`。
 > 订单中的 `address` 是下单时的快照。若用户之后删除该地址，`address.id` 返回 `null`，但 `name/phone/detail` 仍保留；`repeat` 也不会再带回已删除的 `address_id`。
 
 **GET /orders** 支持 `state=pending_pay|making|completed|cancelled`，不传返回全部。响应项结构见 2.7。
@@ -689,6 +692,49 @@
 { "product_id": 1, "favorited": true }
 ```
 
+### 3.10 桌码点餐 / 取餐核销
+
+| 方法 | 路径 | 鉴权 | 说明 |
+|---|---|---|---|
+| POST | `/tables/resolve` | 否 | 解析桌码内容，返回门店 + 桌号 |
+| GET | `/orders/{out_trade_no}/pickup-qr` | 是 | 取餐二维码（见 3.5） |
+| POST | `/staff/pickup/lookup` | 否 | 店员核销前查询订单（需店员口令） |
+| POST | `/staff/pickup/complete` | 否 | 店员确认取餐 |
+
+桌码为静态二维码，内容格式固定为 `MILKTEA:<store_id>:<table_no>`，由 `fastapi_demo/database/build_table_qrcodes.py` 生成到 `static/qrcodes/`（含 `print.html` 打印页与 `manifest.csv`）。门店桌位配置在 `fastapi_demo/app/tables.py`。
+
+**POST /tables/resolve**
+
+```json
+// 请求
+{ "scene": "MILKTEA:1:A01" }
+// 响应 data
+{ "store_id": 1, "store_name": "四猫茶学园·星悦广场店", "table_no": "A01" }
+```
+
+> 内容格式错误、桌号不存在返回 `1004`；门店已打烊返回 `2004`。
+
+**GET /orders/{out_trade_no}/pickup-qr** 响应 data：
+
+```json
+{
+  "content": "PICK:CAT1760000000000123:48213",
+  "image": "data:image/png;base64,iVBORw0KGgo..."
+}
+```
+
+> 仅 `making` / `completed` 且有 `pick_code` 的订单可取，否则 `4001`。`image` 为 PNG data URI，前端直接放入 `<image :src>`。
+
+**POST /staff/pickup/lookup / complete** 请求：
+
+```json
+{ "code": "PICK:CAT1760000000000123:48213", "pin": "店员口令" }
+// code 也可以只传 5 位取餐码，如 "48213"；重复取餐码返回 4001
+// 响应 data 为完整 Order（见 2.7），complete 成功后 state 变为 completed
+```
+
+> 店员口令来自后端 `.env` 的 `STAFF_PIN`，未配置返回 `9000`（503），口令错误返回 `1003`（403）。演示版没有店员账号体系，生产应改为店员登录 + 角色权限。订单必须处于 `making` 才能核销；已核销/已取消/未支付返回 `4001`。
+
 ---
 
 ## 4. 订单状态机
@@ -770,31 +816,40 @@ fastapi_demo/
 ├── .env.example                # 数据库连接示例（复制为 .env 后填写）
 ├── app/
 │   ├── core/{config,response,security}.py
-│   ├── api/v1/{auth,users,stores,menu,coupons,orders,payments,member,addresses}.py
+│   ├── api/v1/{auth,users,stores,menu,coupons,orders,payments,member,addresses,tables,staff}.py
 │   ├── constants.py            # 冰/糖选项、订单状态文案、时间工具
 │   ├── db.py                   # Engine / SessionLocal / get_db
 │   ├── models.py               # SQLAlchemy 2.0 ORM（16 张表）
 │   ├── schemas.py              # 全部 Pydantic 模型
 │   ├── serializers.py          # ORM 对象 → 接口 JSON（金额转 float、路径转完整 URL）
+│   ├── tables.py               # 门店桌位配置 + 桌码 scene 解析
 │   ├── deps.py
-│   └── services/{pricing,orders,coupons,member,catalog}.py
+│   └── services/{pricing,orders,coupons,member,catalog,pickup}.py
 ├── database/
 │   ├── schema_sqlite.sql
 │   ├── schema_mysql.sql
 │   ├── build_sqlite.py
+│   ├── build_table_qrcodes.py  # 生成桌码 PNG / 打印页 / manifest
 │   └── milktea.db              # 默认运行时数据库
-└── static/images/              # 12 款饮品图 + 默认头像（复用前端资源）
+└── static/
+    ├── images/                 # 12 款饮品图 + 默认头像（复用前端资源）
+    └── qrcodes/                # 桌码 PNG、print.html、manifest.csv
 ```
 
 启动（默认使用 `database/milktea.db`）：
 
 ```bash
 cd fastapi_demo
-python database/build_sqlite.py           # 首次运行，生成 SQLite 库
+python database/build_sqlite.py           # 首次运行，生成 SQLite 库（会覆盖现有数据）
+python database/build_table_qrcodes.py    # 生成 22 张桌码（segno，纯 Python）
 python -m uvicorn main:app --reload       # 依赖已装在 .venv 中
 # 接口文档 http://127.0.0.1:8000/docs
 # 演示登录 POST /api/v1/auth/wx-login  {"code": "demo"}
 ```
+
+> 已有数据库升级到桌码版本时，**不要**重建库（会清空用户/订单），执行一次：
+> `ALTER TABLE orders ADD COLUMN table_no TEXT;`（MySQL 用 `VARCHAR(8) NULL`）。
+> 核销口令在 `.env` 配置 `STAFF_PIN=6位数字`，修改后需重启服务。
 
 切换到 MySQL：
 
@@ -802,7 +857,7 @@ python -m uvicorn main:app --reload       # 依赖已装在 .venv 中
 2. 复制 `.env.example` 为 `.env`，填写 `DATABASE_URL=mysql+pymysql://root:你的密码@127.0.0.1:3306/milktea?charset=utf8mb4`。
 3. 重启服务。`.env` 已被 `.gitignore` 忽略，不会提交密码。
 
-> 环境变量：`DATABASE_URL` 切换数据库，`APP_SECRET` 覆盖签名密钥，`BASE_URL` 用于拼接图片/头像完整 URL，`SQL_ECHO=1` 可打印 SQL。
+> 环境变量：`DATABASE_URL` 切换数据库，`APP_SECRET` 覆盖签名密钥，`BASE_URL` 用于拼接图片/头像完整 URL，`SQL_ECHO=1` 可打印 SQL，`STAFF_PIN` 为店员核销口令（演示用）。
 
 ### 6.2 关键依赖
 
@@ -846,12 +901,13 @@ async def biz_error_handler(request, exc):
 
 | 页面 | 主要接口 |
 |---|---|
-| 首页 `pages/index` | `/menu/lines`、`/menu/products?tab=classic`、`/coupons/templates`、`/stores` |
-| 点单页 `pages/menu` | `/stores`、`/menu/products`、`/menu/options`、`/coupons/usable` |
+| 首页 `pages/index` | `/menu/lines`、`/menu/products?tab=classic`、`/coupons/templates`、`/stores`、`/tables/resolve`（扫码点餐） |
+| 点单页 `pages/menu` | `/stores`、`/menu/products`、`/menu/options`、`/coupons/usable`、`/tables/resolve` |
 | 详情页 `pages/detail` | `/menu/products/{id}`、`/users/me/favorites` |
 | 结算页 `pages/checkout` | `/orders/price-preview`、`/coupons/usable`、`/orders`、`/addresses` |
 | 订单列表 `pages/order/index` | `/orders/counts`、`/orders?state=` |
-| 订单详情 `pages/order/order` | `/orders/{no}`、`/payments/{no}`、`/orders/{no}/cancel`、`/orders/{no}/review` |
+| 订单详情 `pages/order/order` | `/orders/{no}`、`/orders/{no}/pickup-qr`、`/payments/{no}`、`/orders/{no}/cancel`、`/orders/{no}/review` |
+| 店员核销 `pages/staff/verify` | `/staff/pickup/lookup`、`/staff/pickup/complete` |
 | 我的 `pages/user` | `/users/me`、`/member/profile`、`/orders/counts`、`/users/me/coupons` |
 | 排行榜 `pages/rank` | `/menu/rank?period=week` |
 

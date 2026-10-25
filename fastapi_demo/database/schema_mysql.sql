@@ -252,6 +252,7 @@ CREATE TABLE orders (
     coupon_cut         DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
     total              DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
     pick_code          VARCHAR(16) NULL,
+    table_no           VARCHAR(8) NULL,
     address_id         INT NULL,
     address_name       VARCHAR(20) NULL,
     address_phone      VARCHAR(20) NULL,

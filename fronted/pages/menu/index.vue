@@ -3,11 +3,14 @@
 		<!-- ① 顶栏：自取 | 外送 + 搜索（右侧留给微信胶囊） -->
 		<view class="topbar" :style="{ paddingTop: safeTop, paddingRight: capPad + 'px' }">
 			<view class="mode">
-				<text class="mode-t" :class="{ on: mode === '自取' }" @tap="mode = '自取'">自取</text>
+				<text class="mode-t" :class="{ on: mode === '自取' }" @tap="setMode('自取')">自取</text>
 				<view class="mode-div"></view>
-				<text class="mode-t" :class="{ on: mode === '外送' }" @tap="mode = '外送'">外送</text>
+				<text class="mode-t" :class="{ on: mode === '外送' }" @tap="setMode('外送')">外送</text>
 			</view>
 			<view class="tb-actions">
+				<view class="tb-scan" hover-class="hv" @tap="scanTable">
+					<text class="tb-scan-t">扫码</text>
+				</view>
 				<view class="tb-search" hover-class="hv" @tap="onSearch">
 					<uni-icons type="search" size="20" color="#3d3229"></uni-icons>
 				</view>
@@ -36,6 +39,14 @@
 				<text class="stb-t1">拼单</text>
 				<text class="stb-t2">享优惠</text>
 			</view>
+		</view>
+
+		<!-- 扫码桌号：堂食上下文 -->
+		<view class="table-bar" v-if="tableCtx">
+			<text class="tb-tag">堂食</text>
+			<text class="tbb-name">{{ tableCtx.storeName }}</text>
+			<text class="tbb-no">{{ tableCtx.tableNo }} 桌</text>
+			<text class="tbb-clear" hover-class="hv" @tap="dropTable">取消</text>
 		</view>
 
 		<!-- ⑤ 页签 -->
@@ -266,16 +277,20 @@
 
 <script setup>
 import { ref, computed, nextTick, onMounted, getCurrentInstance, watch } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
 import ProductCard from '@/components/menu/product-card.vue'
 import CouponTicket from '@/components/menu/coupon-ticket.vue'
 import CategoryRail from '@/components/menu/category-rail.vue'
 import { getLines, getOptions, getProducts, getStores } from '@/common/api/catalog'
 import { claimCoupon, getTemplates } from '@/common/api/coupons'
+import { resolveTable } from '@/common/api/tables'
 import { ensureLogin } from '@/common/api/auth'
 import { showError } from '@/common/api/request'
 import { toDrink } from '@/common/api/adapters'
 import { getStoreId, saveStoreId } from '@/common/api/token'
 import { setCheckoutDraft } from '@/common/store/session'
+import { getTableContext, saveTableContext, clearTableContext } from '@/common/store/table'
+import { scanCode, isScanCancel } from '@/common/utils/scan'
 
 const lines = ref([])
 const products = ref([])
@@ -300,6 +315,7 @@ try {
 const listW = Math.floor(sys.windowWidth * 574 / 750)
 
 const mode = ref('自取')
+const tableCtx = ref(getTableContext())
 const tabId = ref('classic')
 const sideId = ref('coupon')
 const scrollInto = ref('')
@@ -334,7 +350,59 @@ const pickStore = (st) => {
 	selStoreId.value = st.id
 	saveStoreId(st.id)
 	storePick.value = false
+	if (tableCtx.value && tableCtx.value.storeId !== st.id) {
+		tableCtx.value = null
+		clearTableContext()
+	}
 	loadProducts()
+}
+
+const setMode = (next) => {
+	if (next === mode.value) return
+	if (next === '外送' && tableCtx.value) {
+		uni.showToast({ title: '堂食订单仅支持自取，如需外送请先取消堂食', icon: 'none' })
+		return
+	}
+	mode.value = next
+}
+
+const dropTable = () => {
+	tableCtx.value = null
+	clearTableContext()
+	uni.showToast({ title: '已取消堂食', icon: 'none' })
+}
+
+/** 桌号上下文生效：门店跟着切到桌码所属门店 */
+const applyTable = (ctx) => {
+	tableCtx.value = ctx
+	saveTableContext(ctx)
+	mode.value = '自取'
+	storePick.value = false
+	if (selStoreId.value !== ctx.storeId) {
+		selStoreId.value = ctx.storeId
+		saveStoreId(ctx.storeId)
+		loadProducts()
+	}
+}
+
+const scanTable = async () => {
+	let scene = ''
+	try {
+		scene = await scanCode()
+	} catch (error) {
+		if (!isScanCancel(error)) uni.showToast({ title: '扫码失败，请重试', icon: 'none' })
+		return
+	}
+	uni.showLoading({ title: '识别桌号…' })
+	try {
+		const table = await resolveTable(scene)
+		uni.hideLoading()
+		applyTable(table)
+		uni.showToast({ title: `${table.tableNo} 桌 · ${table.storeName}`, icon: 'none' })
+	} catch (error) {
+		uni.hideLoading()
+		showError(error)
+	}
 }
 
 // 页签候选池由后端返回；classic=全部，会员/新品/常点由后端筛选
@@ -499,6 +567,18 @@ onMounted(async () => {
 	loadCoupons()
 	loadProducts()
 })
+// 从首页扫码回来时，onShow 同步最新的桌号上下文
+onShow(() => {
+	const ctx = getTableContext()
+	tableCtx.value = ctx
+	if (!ctx) return
+	mode.value = '自取'
+	if (selStoreId.value !== ctx.storeId) {
+		selStoreId.value = ctx.storeId
+		saveStoreId(ctx.storeId)
+		loadProducts()
+	}
+})
 // 切页签：列表重挂载并回到顶部，重新量取分节位置
 watch(tabId, () => {
 	scrollTop.value = 0
@@ -566,6 +646,7 @@ const buyNow = () => {
 	setCheckoutDraft({
 		storeId: selStoreId.value,
 		mode: orderMode(),
+		tableNo: tableCtx.value ? tableCtx.value.tableNo : null,
 		items: [{
 			product: specDrink.value,
 			ice: spIce.value,
@@ -588,6 +669,7 @@ const checkout = () => {
 	setCheckoutDraft({
 		storeId: selStoreId.value,
 		mode: orderMode(),
+		tableNo: tableCtx.value ? tableCtx.value.tableNo : null,
 		items: cart.value.map(it => ({
 			product: it.product,
 			ice: it.ice,
@@ -698,6 +780,21 @@ const claimAll = async () => {
 	display: flex;
 	align-items: center;
 }
+.tb-scan {
+	height: 54rpx;
+	padding: 0 18rpx;
+	margin-right: 14rpx;
+	border-radius: 999rpx;
+	background: #ffffff;
+	display: flex;
+	align-items: center;
+	box-shadow: 0 4rpx 12rpx rgba(61, 50, 41, 0.06);
+}
+.tb-scan-t {
+	font-size: 24rpx;
+	font-weight: bold;
+	color: #8b5e3c;
+}
 .tb-search {
 	width: 54rpx;
 	height: 54rpx;
@@ -707,6 +804,47 @@ const claimAll = async () => {
 	align-items: center;
 	justify-content: center;
 	box-shadow: 0 4rpx 12rpx rgba(61, 50, 41, 0.06);
+}
+
+/* 堂食桌号条 */
+.table-bar {
+	display: flex;
+	align-items: center;
+	margin: 4rpx 24rpx 6rpx;
+	padding: 10rpx 16rpx;
+	border-radius: 14rpx;
+	background: #fdf1e4;
+}
+.tb-tag {
+	flex-shrink: 0;
+	padding: 2rpx 10rpx;
+	border-radius: 8rpx;
+	background: #e8833a;
+	font-size: 20rpx;
+	color: #ffffff;
+}
+.tbb-name {
+	flex: 1;
+	min-width: 0;
+	margin-left: 12rpx;
+	font-size: 22rpx;
+	color: #8c8177;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.tbb-no {
+	flex-shrink: 0;
+	margin-left: 8rpx;
+	font-size: 24rpx;
+	font-weight: bold;
+	color: #8b5e3c;
+}
+.tbb-clear {
+	flex-shrink: 0;
+	margin-left: 16rpx;
+	font-size: 22rpx;
+	color: #b7ab9e;
 }
 
 /* ② 门店行（紧凑） */

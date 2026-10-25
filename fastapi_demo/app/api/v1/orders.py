@@ -1,8 +1,9 @@
+import segno
 from fastapi import APIRouter, Depends, Header, Query
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.core.response import ApiResponse, ok
+from app.core.response import ApiResponse, BizError, ok
 from app.db import get_db
 from app.deps import get_current_user, get_optional_user
 from app.models import Order, User
@@ -12,6 +13,7 @@ from app.schemas import (
     OrderOut,
     OrderState,
     PageData,
+    PickupQrOut,
     PricePreviewIn,
     PricePreviewOut,
     RepeatData,
@@ -98,6 +100,20 @@ def order_detail(
     db: Session = Depends(get_db),
 ):
     return ok(serialize_order(order_service.get_owned_order(db, user, out_trade_no)))
+
+
+@router.get("/{out_trade_no}/pickup-qr", response_model=ApiResponse[PickupQrOut], summary="取餐二维码")
+def pickup_qr(
+    out_trade_no: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    order = order_service.get_owned_order(db, user, out_trade_no)
+    if order.state not in ("making", "completed") or not order.pick_code:
+        raise BizError(4001, "订单还未进入制作，暂无取餐码", 409)
+    content = f"PICK:{order.out_trade_no}:{order.pick_code}"
+    image = segno.make(content, error="m").png_data_uri(scale=8, border=2)
+    return ok({"content": content, "image": image})
 
 
 @router.post("/{out_trade_no}/cancel", response_model=ApiResponse[OrderOut], summary="取消订单")

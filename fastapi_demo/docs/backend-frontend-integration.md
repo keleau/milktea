@@ -39,10 +39,14 @@ fastapi_demo/
 │   │   ├── orders.py           /orders 试算/创建/列表/详情/取消/完成/评价/再来一单
 │   │   ├── payments.py         /payments/wechat/prepay|notify、/payments/{no}
 │   │   ├── member.py           /member/profile|points/*
-│   │   └── addresses.py        /addresses CRUD
+│   │   ├── addresses.py        /addresses CRUD
+│   │   ├── tables.py           /tables/resolve（桌码解析）
+│   │   └── staff.py            /staff/pickup/lookup|complete（店员核销）
+│   ├── tables.py               门店桌位配置 + scene 解析（生成脚本共用）
 │   └── services/
 │       ├── pricing.py          商品快照、券校验、打包费、试算
 │       ├── orders.py           建单、支付、取消、完成、评价、再来一单、计数
+│       ├── pickup.py           取餐码定位、店员口令、核销状态校验
 │       ├── coupons.py          券状态刷新、发放、可用数量
 │       ├── member.py           等级、积分变更
 │       └── catalog.py          常点商品排序
@@ -50,10 +54,12 @@ fastapi_demo/
 │   ├── schema_sqlite.sql
 │   ├── schema_mysql.sql
 │   ├── build_sqlite.py
+│   ├── build_table_qrcodes.py  生成桌码 PNG / print.html / manifest.csv
 │   └── milktea.db              默认运行时库（含演示数据）
 ├── static/
 │   ├── images/                 饮品图、默认头像
-│   └── avatars/                用户上传头像（gitignore）
+│   ├── avatars/                用户上传头像（gitignore）
+│   └── qrcodes/                桌码 PNG、print.html、manifest.csv
 └── docs/backend-frontend-integration.md
 ```
 
@@ -69,12 +75,19 @@ cd fastapi_demo
 # 首次（如果没有 database/milktea.db）
 python database/build_sqlite.py
 
-# 安装依赖（已装过可跳过）
+# 安装依赖（已装过可跳过；segno 仅生成桌码时需要）
 python -m pip install -r requirements.txt
+
+# 生成/刷新桌码（22 张 PNG + print.html + manifest.csv）
+python database/build_table_qrcodes.py
 
 # 启动
 python -m uvicorn main:app --reload --host 127.0.0.1 --port 8000
 ```
+
+> 已有库升级到桌码版本时**不要重建**（会清空用户和订单），只补列：
+> `ALTER TABLE orders ADD COLUMN table_no TEXT;`（MySQL：`VARCHAR(8) NULL`）。
+> 核销口令在 `.env` 设置 `STAFF_PIN`（演示用 6 位数字）；未配置时核销接口返回 9000/503，修改后需重启服务。
 
 自检地址：
 
@@ -124,7 +137,7 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 - H5 跨域访问 `127.0.0.1:8000` 不需要额外代理。
 - 鉴权用 `Authorization` 请求头，不依赖 Cookie，因此 `allow_credentials=False` 不影响登录。
 - 小程序不走浏览器 CORS，但微信开发者工具需关闭域名校验（`manifest.json` 已设 `urlCheck: false`）；真机/正式版必须配置 request 合法域名。
-- 静态目录：`/static/images/...`（饮品图、默认头像）、`/static/avatars/...`（用户上传）。
+- 静态目录：`/static/images/...`（饮品图、默认头像）、`/static/avatars/...`（用户上传）、`/static/qrcodes/...`（桌码 PNG 与打印页）。
 
 ---
 
@@ -344,8 +357,9 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 `POST /orders`（必须登录，建议带 `Idempotency-Key`）
 
-- 请求体 = 试算字段 + `address_id` + `remark`。
+- 请求体 = 试算字段 + `address_id` + `table_no` + `remark`。
 - 外送必须传自己的地址：缺失 1001，非本人 1004。
+- 扫码点餐时传 `table_no`（≤8 字符，自动转大写）：桌号必须属于当前门店，否则 1004；堂食单只允许 `mode=pickup`，传外送返回 1001。`price-preview` 忽略该字段。
 - 事务内写：
   - `orders`（快照门店名、金额、地址快照、`pending_pay`）
   - `order_items`（商品名/图/线/冰糖/单价/数量/金额快照）
@@ -386,7 +400,8 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 |---|---|---|
 | 列表 | `GET /orders?state=&page=&page_size=` | 只查当前用户；按 `create_time desc` |
 | 角标 | `GET /orders/counts` | 按状态分组计数 |
-| 详情 | `GET /orders/{no}` | 非本人 1003；不存在 1004 |
+| 详情 | `GET /orders/{no}` | 非本人 1003；不存在 1004；含 `table_no` |
+| 取餐二维码 | `GET /orders/{no}/pickup-qr` | 仅本人；`making/completed` 且有 `pick_code`，否则 4001；返回 `{content: "PICK:单号:取餐码", image: "data:image/png;base64,..."}` |
 | 取消 | `POST /orders/{no}/cancel` | 仅 `pending_pay/making`；making 回补库存、退积分 |
 | 完成 | `POST /orders/{no}/complete` | 仅 `making` → `completed`，写 `finish_time` |
 | 评价 | `POST /orders/{no}/review` | 仅 `completed` 且未评价；写 review 三字段 |
@@ -428,6 +443,22 @@ pending_pay ──支付回调──> making ──complete──> completed
 - 全部上架商品按 `paws DESC, is_hot DESC, id` 排序。
 - `items` = 完整商品字段 + `rank`；`new_items` = `is_new` 的前 6 个完整商品。
 - `week/month` 当前排序一致。
+
+### 5.8 桌码 / 店员核销
+
+| 前端动作 | 接口 | 后端行为 |
+|---|---|---|
+| 扫码识别桌号 | `POST /tables/resolve` `{scene}` | 解析 `MILKTEA:<store_id>:<table_no>`；桌号须在 `app/tables.py` 配置内；门店打烊 2004；格式错误/桌号不存在 1004 |
+| 店员查询 | `POST /staff/pickup/lookup` `{code, pin}` | 先校验 `STAFF_PIN`（未配置 9000/503，错误 1003/403）；`code` 可为 `PICK:单号:取餐码` 或 5 位取餐码；重复取餐码 4001；仅 `making` 可查 |
+| 店员核销 | `POST /staff/pickup/complete` `{code, pin}` | 同上校验，`state → completed` 并写 `finish_time`；已核销/已取消/未支付 4001 |
+
+桌位配置与生成：
+
+- `app/tables.py`：`DINING_TABLES = {1: A01–A08, 2: B01–B06, 3: C01–C08}`（共 22 桌），`scene_of()` / `parse_scene()` / `table_exists()` 同时供接口与生成脚本使用。
+- `database/build_table_qrcodes.py`：`segno` 生成 PNG（scale=20、border=4），输出 `static/qrcodes/store{id}_{table}.png`、`print.html`（4 列打印版）、`manifest.csv`；`--clean` 只删除本脚本生成的 `store*_*.png` / `print.html` / `manifest.csv`。
+- 桌码是静态内容，不含签名与过期时间；门店/桌位变更后重新生成并重新打印即可。
+
+> 演示边界：核销无店员账号体系，只有共享口令；生产应增加店员登录、角色权限与操作审计，并把口令换成服务端会话。
 
 ---
 
@@ -681,6 +712,10 @@ curl -s -X POST http://127.0.0.1:8000/api/v1/payments/wechat/notify \
 | 启动 warning 表不存在 | 没建库/导错库 | 运行 `build_sqlite.py` 或导入 MySQL 脚本 |
 | 上传头像 404 | `static/avatars` 未创建 / 路径被清 | 应用启动会自动建目录；检查 `static/` 可写 |
 | 真机接口通但图片不通 | 只改了前端 base，后端 `BASE_URL` 没改 | 两边都改成同一局域网 IP 并重启 |
+| 扫码提示桌号无效 1004 | 二维码不是本系统桌码 / 门店或桌号未配置 | 用 `static/qrcodes/` 生成的码；新增桌位先改 `app/tables.py` 再重生成 |
+| 核销返回 9000/503 | 后端 `.env` 未设置 `STAFF_PIN`，或改后未重启 | 配置 `STAFF_PIN` 并重启后端 |
+| 核销返回 1003/403 | 店员口令输错 | 核对 `.env` 的 `STAFF_PIN` |
+| 核销返回 4001 | 订单未支付 / 已核销 / 已取消，或取餐码重复 | 让顾客打开订单详情出示二维码；刷新订单状态 |
 
 ---
 
@@ -691,6 +726,7 @@ curl -s -X POST http://127.0.0.1:8000/api/v1/payments/wechat/notify \
 - 微信支付、退款为模拟；notify 公开且不验签，**不能用于生产**。
 - 登录分两种：配置 `WECHAT_APPID` + `WECHAT_SECRET` 后走真实 `code2session`，`openid` 由微信签发；未配置时才用 `mock_id` 模拟。`mock_id` 是前端本地标识，任何人都能伪造，**不能当作可信身份**。
 - `WECHAT_SECRET` 只放后端 `.env`，不要写进前端、文档、聊天或提交仓库。
+- `STAFF_PIN` 只放后端 `.env`；店员核销接口无登录态，靠共享口令，演示够用，生产必须换成店员账号 + 角色权限。
 - CORS `*` 仅方便联调；生产收紧到具体域名。
 - 上传头像只校验 MIME 与大小，演示够用；生产还应做图片重编码、病毒扫描、对象存储。
 - 订单超时取消、券锁定超时释放未实现定时任务；演示结束请手动取消未支付订单。
@@ -720,7 +756,10 @@ curl -s -X POST http://127.0.0.1:8000/api/v1/payments/wechat/notify \
 | POST | `/orders/price-preview` | 可选 | 结算 |
 | POST | `/orders` | 是 | 结算 |
 | GET | `/orders` `/orders/counts` `/orders/{no}` | 是 | 订单列表/详情、我的 |
+| GET | `/orders/{no}/pickup-qr` | 是 | 订单详情（取餐二维码） |
 | POST | `/orders/{no}/cancel|complete|repeat|review` | 是 | 订单详情 |
+| POST | `/tables/resolve` | 否 | 首页、点单（扫码识别桌号） |
+| POST | `/staff/pickup/lookup|complete` | 否（店员口令） | 店员核销 |
 | POST | `/payments/wechat/prepay` | 是 | 结算、订单详情 |
 | POST | `/payments/wechat/notify` | 否 | 演示支付 |
 | GET | `/payments/{no}` | 是 | 订单详情 |

@@ -205,6 +205,7 @@ CREATE TABLE orders (
     coupon_cut        NUMERIC(10, 2) NOT NULL DEFAULT 0 CHECK (coupon_cut >= 0),
     total             NUMERIC(10, 2) NOT NULL DEFAULT 0 CHECK (total >= 0),
     pick_code         TEXT,
+    table_no          TEXT,
     address_id        INTEGER,
     address_name      TEXT,
     address_phone     TEXT,

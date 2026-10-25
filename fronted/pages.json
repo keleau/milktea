@@ -76,6 +76,13 @@
 				"navigationBarTitleText": "收货地址",
 				"navigationBarBackgroundColor": "#FAF6F0"
 			}
+		},
+		{
+			"path": "pages/staff/verify",
+			"style": {
+				"navigationBarTitleText": "店员核销",
+				"navigationBarBackgroundColor": "#FAF6F0"
+			}
 		}
 	],
 	"tabBar": {

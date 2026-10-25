@@ -102,6 +102,7 @@ import { showError } from '@/common/api/request'
 import { toDrink } from '@/common/api/adapters'
 import { getStoreId } from '@/common/api/token'
 import { setCheckoutDraft } from '@/common/store/session'
+import { getTableContext } from '@/common/store/table'
 
 const EMPTY_LINE = { id: '', name: '', tag: '', en: '', desc: '', color: '#8b5e3c', bg: '#f3eae0' }
 const lines = ref([])
@@ -161,9 +162,12 @@ const toggleTopping = (t) => {
 }
 
 const toCheckout = () => {
+	const table = getTableContext()
+	const useTable = table && table.tableNo
 	setCheckoutDraft({
-		storeId: getStoreId(),
-		mode: mode.value,
+		storeId: useTable ? table.storeId : getStoreId(),
+		mode: useTable ? 'pickup' : mode.value,
+		tableNo: useTable ? table.tableNo : null,
 		items: [{
 			product: drink.value,
 			ice: ice.value,

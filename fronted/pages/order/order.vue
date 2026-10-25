@@ -13,6 +13,13 @@
 			<text class="bn-sub" v-if="order.state === 'pending_pay'">请尽快完成支付，超时订单将自动取消</text>
 		</view>
 
+		<!-- 取餐二维码：到吧台出示给店员扫 -->
+		<view class="panel qr-panel" v-if="order.mode === 'pickup' && showPickCode && pickupQr">
+			<text class="p-title">取餐二维码</text>
+			<image class="qr-img" :src="pickupQr" mode="aspectFit"></image>
+			<text class="qr-tip">到吧台出示，店员扫码核销</text>
+		</view>
+
 		<!-- 清单 -->
 		<view class="panel">
 			<text class="p-title">订单清单</text>
@@ -32,6 +39,7 @@
 			<text class="p-title">订单信息</text>
 			<view class="sum-line"><text>订单编号</text><text>{{ order.out_trade_no }}</text></view>
 			<view class="sum-line"><text>取餐方式</text><text>{{ order.modeText }}</text></view>
+			<view class="sum-line" v-if="order.table_no"><text>堂食桌号</text><text class="strong">{{ order.table_no }} 桌</text></view>
 			<view class="sum-line"><text>下单时间</text><text>{{ order.createText }}</text></view>
 			<view class="sum-line"><text>小计</text><text>¥{{ order.subtotal }}</text></view>
 			<view class="sum-line"><text>{{ order.mode === 'pickup' ? '打包费' : '配送费' }}</text><text>¥{{ order.packFee }}</text></view>
@@ -110,6 +118,7 @@ import {
 	cancelOrder as cancelOrderApi,
 	completeOrder as completeOrderApi,
 	getOrder,
+	getPickupQr,
 	payOrder,
 	repeatOrder as repeatOrderApi,
 	reviewOrder
@@ -120,6 +129,7 @@ import { toDrink } from '@/common/api/adapters'
 import { setCheckoutDraft } from '@/common/store/session'
 
 const order = ref(null)
+const pickupQr = ref('')
 const loadingText = ref('加载中…')
 const paying = ref(false)
 const acting = ref(false)
@@ -136,10 +146,23 @@ onShow(() => {
 	if (orderNo) loadOrder()
 })
 
+const loadPickupQr = async () => {
+	if (pickupQr.value) return
+	try {
+		const data = await getPickupQr(orderNo)
+		pickupQr.value = data.image
+	} catch (error) {
+		console.warn('[order] 取餐二维码加载失败', error)
+	}
+}
+
 const loadOrder = async () => {
 	try {
 		await ensureLogin()
 		order.value = await getOrder(orderNo)
+		if (order.value.mode === 'pickup' && (order.value.state === 'making' || order.value.state === 'completed')) {
+			loadPickupQr()
+		}
 	} catch (error) {
 		loadingText.value = '订单加载失败'
 		showError(error)
@@ -346,6 +369,21 @@ page {
 	font-size: 30rpx;
 	font-weight: bold;
 	color: #3d3229;
+}
+.qr-panel {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+}
+.qr-img {
+	width: 300rpx;
+	height: 300rpx;
+	margin-top: 20rpx;
+}
+.qr-tip {
+	margin-top: 8rpx;
+	font-size: 22rpx;
+	color: #8c8177;
 }
 .od-item {
 	display: flex;

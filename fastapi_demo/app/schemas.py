@@ -211,6 +211,7 @@ class PricePreviewOut(BaseModel):
 class OrderCreateIn(PricePreviewIn):
     address_id: int | None = None
     remark: str = Field(default="", max_length=100)
+    table_no: str | None = Field(default=None, max_length=8)
 
 
 class OrderItemOut(BaseModel):
@@ -260,6 +261,7 @@ class OrderOut(BaseModel):
     coupon_cut: float
     total: float
     pick_code: str | None = None
+    table_no: str | None = None
     address: OrderAddressOut | None = None
     remark: str
     create_time: int
@@ -273,6 +275,26 @@ class OrderCountsOut(BaseModel):
     making: int
     completed: int
     cancelled: int
+
+
+class TableResolveIn(BaseModel):
+    scene: str = Field(min_length=1, max_length=64)
+
+
+class TableResolveOut(BaseModel):
+    store_id: int
+    store_name: str
+    table_no: str
+
+
+class PickupQrOut(BaseModel):
+    content: str
+    image: str
+
+
+class StaffPickupIn(BaseModel):
+    code: str = Field(min_length=1, max_length=64)
+    pin: str = Field(min_length=1, max_length=32)
 
 
 class RepeatData(BaseModel):

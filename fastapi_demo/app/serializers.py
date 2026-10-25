@@ -183,6 +183,7 @@ def serialize_order(order: Order) -> dict:
         "coupon_cut": money(order.coupon_cut),
         "total": money(order.total),
         "pick_code": order.pick_code,
+        "table_no": order.table_no,
         "address": address,
         "remark": order.remark,
         "create_time": order.create_time,

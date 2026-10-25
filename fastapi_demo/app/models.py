@@ -190,6 +190,7 @@ class Order(Base):
     coupon_cut: Mapped[Decimal] = mapped_column(Numeric(10, 2), default=Decimal("0.00"))
     total: Mapped[Decimal] = mapped_column(Numeric(10, 2), default=Decimal("0.00"))
     pick_code: Mapped[str | None] = mapped_column(String(16))
+    table_no: Mapped[str | None] = mapped_column(String(8))
     address_id: Mapped[int | None] = mapped_column(
         ForeignKey("addresses.id", onupdate="CASCADE", ondelete="SET NULL")
     )

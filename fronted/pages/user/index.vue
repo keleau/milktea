@@ -79,6 +79,10 @@
 				<text class="cell-name">分享转发</text>
 				<text class="cell-arrow">›</text>
 			</view>
+			<view class="cell" hover-class="cell-hv" @tap="toStaff">
+				<text class="cell-name">店员核销</text>
+				<text class="cell-arrow">›</text>
+			</view>
 			<view class="cell" hover-class="cell-hv" @tap="contact">
 				<text class="cell-name">联系客服</text>
 				<text class="cell-arrow">›</text>
@@ -221,6 +225,9 @@ const toCoupons = () => {
 }
 const toAddress = () => {
 	uni.navigateTo({ url: '/pages/address/index' })
+}
+const toStaff = () => {
+	uni.navigateTo({ url: '/pages/staff/verify' })
 }
 const comingSoon = () => {
 	uni.showToast({ title: '敬请期待', icon: 'none' })

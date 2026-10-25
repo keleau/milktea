@@ -23,14 +23,12 @@ if hasattr(sys.stdout, "reconfigure"):
 FASTAPI_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_OUT = FASTAPI_DIR / "static" / "qrcodes"
 DEFAULT_DB = Path(__file__).resolve().parent / "milktea.db"
-SCENE_PREFIX = "MILKTEA"
 
-# 门店 id → 桌号；改完重新运行脚本即可
-TABLES: dict[int, list[str]] = {
-    1: [f"A{i:02d}" for i in range(1, 9)],
-    2: [f"B{i:02d}" for i in range(1, 7)],
-    3: [f"C{i:02d}" for i in range(1, 9)],
-}
+if str(FASTAPI_DIR) not in sys.path:
+    sys.path.insert(0, str(FASTAPI_DIR))
+
+from app.tables import DINING_TABLES, SCENE_PREFIX, scene_of  # noqa: E402
+
 
 
 def parse_args() -> argparse.Namespace:
@@ -51,10 +49,6 @@ def load_store_names(db_path: Path) -> dict[int, str]:
     finally:
         conn.close()
     return {int(store_id): name for store_id, name in rows}
-
-
-def scene_of(store_id: int, table_no: str) -> str:
-    return f"{SCENE_PREFIX}:{store_id}:{table_no}"
 
 
 def clean_outputs(out_dir: Path) -> None:
@@ -123,7 +117,7 @@ def build(out_dir: Path, db_path: Path, clean: bool) -> None:
     store_names = load_store_names(db_path)
     rows: list[dict] = []
 
-    for store_id, table_nos in TABLES.items():
+    for store_id, table_nos in DINING_TABLES.items():
         store_name = store_names.get(store_id, f"门店 {store_id}")
         for table_no in table_nos:
             scene = scene_of(store_id, table_no)
@@ -152,7 +146,7 @@ def build(out_dir: Path, db_path: Path, clean: bool) -> None:
     if missing:
         raise SystemExit(f"[FAIL] 有 {len(missing)} 张桌码没生成成功：{missing[:3]}")
 
-    print(f"[OK] 门店 {len(TABLES)} 个，桌码 {len(rows)} 张")
+    print(f"[OK] 门店 {len(DINING_TABLES)} 个，桌码 {len(rows)} 张")
     print(f"[OK] 输出目录：{out_dir}")
     print(f"[OK] 打印页面：{out_dir / 'print.html'}")
     print(f"[OK] 清单文件：{out_dir / 'manifest.csv'}")

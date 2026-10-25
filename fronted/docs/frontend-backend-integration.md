@@ -204,6 +204,8 @@ uni.showToast({ title: error.message || '请求失败', icon: 'none' })
 | `milk_user` | 当前用户对象 | 首页/我的页首屏、离线兜底 |
 | `milk_mock_id` | 本机固定模拟身份 | 微信登录稳定复用账号；退出登录不清 |
 | `milk_store_id` | 当前选中门店 ID | 菜单 → 详情 → 结算 |
+| `milk_table_context` | 扫码得到的 `{storeId, storeName, tableNo}` | 堂食上下文，跨首页/菜单/详情/结算保留，点「取消」清除 |
+| `milk_staff_pin` | 店员核销口令 | 店员核销页本机保存，仅演示用 |
 | `common/store/session.js` | 结算草稿、订单筛选、结算页选中的地址 ID | 页面间临时状态，不落盘 |
 
 旧的 `milk_orders` 不再读取；接入后订单以服务端数据库为准。
@@ -217,12 +219,13 @@ uni.showToast({ title: error.message || '请求失败', icon: 'none' })
 | 页面 | 读取接口 | 写入接口 | 主要数据库表 |
 |---|---|---|---|
 | 登录 `pages/login` | — | `POST /auth/wx-login` | `users`、`member_levels` |
-| 首页 `pages/index` | `GET /users/me`、`GET /menu/lines`、`GET /menu/products?tab=classic`、`GET /stores`、`GET /coupons/templates` | — | `users`、`products`、`stores`、`coupon_templates` |
-| 点单 `pages/menu` | `GET /stores`、`GET /menu/lines`、`GET /menu/options`、`GET /menu/products?tab=`、`GET /coupons/templates` | `POST /coupons/{id}/claim` | `stores`、`products`、`toppings`、`user_coupons` |
+| 首页 `pages/index` | `GET /users/me`、`GET /menu/lines`、`GET /menu/products?tab=classic`、`GET /stores`、`GET /coupons/templates`、`POST /tables/resolve` | — | `users`、`products`、`stores`、`coupon_templates` |
+| 点单 `pages/menu` | `GET /stores`、`GET /menu/lines`、`GET /menu/options`、`GET /menu/products?tab=`、`GET /coupons/templates`、`POST /tables/resolve` | `POST /coupons/{id}/claim` | `stores`、`products`、`toppings`、`user_coupons` |
 | 详情 `pages/detail` | `GET /menu/products/{id}`、`GET /menu/lines` | —（把草稿交给结算页） | `products`、`product_lines`、`toppings` |
 | 结算 `pages/checkout` | `GET /stores/{id}`、`GET /addresses`、`POST /orders/price-preview` | `POST /orders`、`POST /payments/wechat/prepay`、`POST /payments/wechat/notify` | `orders`、`order_items`、`order_item_toppings`、`user_coupons`、`idempotency_keys`、`products` |
 | 订单列表 `pages/order/index` | `GET /orders?state=` | — | `orders`、`order_items` |
-| 订单详情 `pages/order/order` | `GET /orders/{no}`、`GET /payments/{no}`、`GET /menu/products/{id}`、`GET /menu/options` | `POST /orders/{no}/cancel`、`POST /orders/{no}/complete`、`POST /orders/{no}/review`、`POST /orders/{no}/repeat`、支付 | `orders`、`order_items`、`order_item_toppings`、`products`、`user_coupons`、`points_logs` |
+| 订单详情 `pages/order/order` | `GET /orders/{no}`、`GET /orders/{no}/pickup-qr`、`GET /payments/{no}`、`GET /menu/products/{id}`、`GET /menu/options` | `POST /orders/{no}/cancel`、`POST /orders/{no}/complete`、`POST /orders/{no}/review`、`POST /orders/{no}/repeat`、支付 | `orders`、`order_items`、`order_item_toppings`、`products`、`user_coupons`、`points_logs` |
+| 店员核销 `pages/staff/verify` | `POST /staff/pickup/lookup` | `POST /staff/pickup/complete` | `orders`（只改 `state` / `finish_time`） |
 | 我的 `pages/user` | `GET /users/me`、`GET /orders/counts`、`GET /member/profile` | `PATCH /users/me`、`POST /users/me/avatar`；退出登录只清本地 | `users`、`orders`、`user_coupons`、`points_logs` |
 | 榜单 `pages/rank` | `GET /menu/rank?period=week`、`GET /menu/lines` | — | `products`、`product_lines` |
 | 地址 `pages/address` | `GET /addresses` | `POST/PATCH/DELETE /addresses`、`PATCH /addresses/{id}/default` | `addresses` |
@@ -271,12 +274,15 @@ uni.showToast({ title: error.message || '请求失败', icon: 'none' })
 setCheckoutDraft({
   storeId,
   mode: 'pickup' | 'delivery',
+  tableNo: tableCtx ? tableCtx.tableNo : null,
   items: [{ product /* 视图 drink */, ice, sugar, toppings, count }]
 })
 uni.navigateTo({ url: '/pages/checkout/index' })
 ```
 
 > 购物车的「预估」金额只做展示；结算页会用 `/orders/price-preview` 重新算。
+
+扫码点餐：顶栏「扫码」调用 `uni.scanCode`，把内容交给 `POST /tables/resolve`。成功后 `common/store/table.js` 保存 `{storeId, storeName, tableNo}`，门店自动切到桌码所属门店、模式强制为自取，并在门店行下显示「堂食 A01 桌」条（可点「取消」清除）。切换到其他门店会清除堂食上下文。`pages/index` 首页也有同样入口，扫码成功后 `switchTab` 到点单页，由 `onShow` 读取上下文。
 
 领券：点击券卡 / 一键领取 → `POST /coupons/{template_id}/claim`。成功把本地 `claimed` 置 true；重复领取（3003）提示「已领取」；未登录时 `ensureLogin()` 会回登录页。演示账号两张券都已领取。
 
@@ -340,6 +346,7 @@ const order = await createOrder({
   mode,
   address_id: mode === 'delivery' ? address.id : null,
   coupon_id: couponId || null,
+  table_no: draft.tableNo || null,
   remark: '',
   items: items.map(/* product_id / ice / sugar / topping_ids / count */)
 }, idempotencyKey)
@@ -357,6 +364,7 @@ uni.redirectTo({ url: `/pages/order/order?oid=${order.out_trade_no}` })
 
 - `Idempotency-Key` 在同一结算页内保持不变；网络失败后用户再次点提交不会重复建单。
 - 外送必须选地址，前端先拦一次；后端仍会校验 `address_id`（1001）。
+- 草稿带 `tableNo` 时：结算页隐藏自取/外送切换，展示「堂食 A01 桌」，创建订单传 `table_no`；`price-preview` 不传该字段。后端只允许自取单带桌号，外送 + 桌号返回 1001。
 - 创建成功后即使支付失败，也跳订单详情，不再回结算页重复建单；待支付订单可在详情页继续支付或取消（取消会释放券）。
 - 试算 / 建单会校验商品上下架、库存、门店打烊、券门槛与占用，错误码见第 6 章。
 
@@ -383,7 +391,8 @@ uni.redirectTo({ url: `/pages/order/order?oid=${order.out_trade_no}` })
 - `onLoad` 记下 `oid`；`onShow` 拉 `GET /orders/{no}`，从详情页返回时自动刷新。
 - 状态文案：优先 `state_text`；横幅标题仍按 `state` 显示更口语化的文案。
 - 清单改为 `v-for="item in order.items"`，展示快照字段。
-- 信息区展示：订单号、`mode_text`、下单时间（`create_time` 格式化）、小计、打包费/配送费、券抵扣、实付、备注、外送地址快照。
+- 信息区展示：订单号、`mode_text`、堂食桌号（`table_no`，有值时）、下单时间（`create_time` 格式化）、小计、打包费/配送费、券抵扣、实付、备注、外送地址快照。
+- 自取单进入 `making` / `completed` 后请求 `GET /orders/{no}/pickup-qr`，把返回的 `data.image`（PNG data URI）直接放进 `<image>`，展示取餐二维码供店员扫码；接口失败只记日志，不打断订单页。
 - 按钮与接口：
 
 | 状态 | 按钮 | 接口 | 后续 |
@@ -458,6 +467,15 @@ setCheckoutDraft({
 - `Promise.all([getRank('week'), getLines()])`。
 - `data.items` 是完整商品字段 + `rank`；`data.new_items` 也是完整商品字段。
 - 视图字段用 `toDrink()`；榜单顺序直接用后端返回顺序（`paws desc, is_hot desc, id`），前端不再排序。
+
+### 4.12 店员核销 `pages/staff/verify.vue`（新增）
+
+- 入口：我的页「店员核销」；页面注册在 `pages.json`，标题「店员核销」。
+- 店员口令：输入后点「保存」写入本机 `milk_staff_pin`，之后自动带上。口令来自后端 `.env` 的 `STAFF_PIN`，页面不写死。
+- 扫码：`uni.scanCode` 扫顾客订单页的取餐二维码（内容 `PICK:<订单号>:<取餐码>`），也可手动输入 5 位取餐码。
+- 查询：`POST /staff/pickup/lookup`，命中后展示取餐码、订单号、取餐方式、桌号、商品明细与状态。
+- 核销：`POST /staff/pickup/complete`，成功后订单 `making → completed`，页面提示「核销成功」。已核销/已取消/未支付会返回 `4001`。
+- 演示边界：没有店员账号与角色权限，仅靠口令；生产应改为店员登录 + 门店权限。
 
 ---
 
@@ -695,3 +713,28 @@ curl -s "$BASE/orders?state=pending_pay" -H "Authorization: Bearer $TOKEN"
 - 会话守卫：`ensureLogin()` 不再静默注册；无 token 或刷新失败时 `reLaunch` 登录页，抛 `silent` 错误，页面不会重复弹提示。
 - 退出：我的页「退出登录」→ 清 token/用户缓存 → 回登录页；门店选择和结算草稿保留。
 - 后端对应改动：`LoginIn` 新增可选 `mock_id`（最长 64）；`wx_login` 优先用它生成 openid，未传才退回按 code 哈希。旧的 `{"code":"demo"}` 调用保持兼容。
+
+### 11.7 扫码点餐与取餐核销（2026-10-25）
+
+**桌码**：静态二维码，内容 `MILKTEA:<store_id>:<table_no>`，由 `fastapi_demo/database/build_table_qrcodes.py` 生成 22 张 PNG（1 店 A01–A08、2 店 B01–B06、3 店 C01–C08）到 `fastapi_demo/static/qrcodes/`，同时输出可直接打印的 `print.html` 和 `manifest.csv`。桌位配置集中在 `fastapi_demo/app/tables.py`。
+
+**前端新增/改动**：
+
+| 文件 | 内容 |
+|---|---|
+| `common/api/tables.js` | `resolveTable(scene)` → `{storeId, storeName, tableNo}` |
+| `common/store/table.js` | `milk_table_context` 读写/清除 |
+| `common/utils/scan.js` | `uni.scanCode` Promise 封装 + 取消判断 |
+| `common/api/staff.js` | 核销查询/确认，匿名调用（`auth:false`） |
+| `common/api/orders.js` | `getPickupQr(outTradeNo)` |
+| `pages/index/index.vue` | 首页「扫码点餐」入口，识别成功写上下文并切到点单页 |
+| `pages/menu/index.vue` | 顶栏「扫码」、堂食桌号条、模式限制、草稿带 `tableNo` |
+| `pages/detail/index.vue` | 有堂食上下文时用桌码门店 + 自取 + 桌号 |
+| `pages/checkout/index.vue` | 堂食隐藏模式切换、展示桌号、创建订单传 `table_no` |
+| `pages/order/order.vue` | 展示 `table_no`；自取单制作中/已完成展示取餐二维码 |
+| `pages/staff/verify.vue` | 店员核销页（口令、扫码/手输、查询、确认取餐） |
+| `pages/user/index.vue`、`pages.json` | 我的页入口与页面注册 |
+
+**后端对应改动**：`orders.table_no` 列（SQLite `TEXT` / MySQL `VARCHAR(8)`）、`POST /tables/resolve`、`GET /orders/{no}/pickup-qr`（segno 生成 PNG data URI）、`POST /staff/pickup/lookup|complete`、`.env` 新增 `STAFF_PIN`。
+
+**验证**：后端在临时 SQLite 库上跑过 24 项断言（桌码解析/规范化/非法 scene/非法桌号、堂食下单、外送+桌号拒绝、普通自取回归、支付、`table_no` 落库、取餐二维码内容与尺寸、错误口令、按码/按二维码查询、核销、重复核销 409、未知码 404）。线上库只执行了 `ALTER TABLE orders ADD COLUMN table_no TEXT`，未重建数据。页面交互需在 HBuilderX 真机或开发者工具按「首页扫码 → 点单 → 结算 → 支付 → 订单页二维码 → 我的 → 店员核销」走一遍（`uni.scanCode` 无法在 H5/桌面浏览器验证）。

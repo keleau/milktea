@@ -44,6 +44,11 @@ export async function completeOrder(outTradeNo) {
 	return toOrder(await request({ url: `/orders/${outTradeNo}/complete`, method: 'POST' }))
 }
 
+/** 取餐二维码（后端返回 data:image/png;base64） */
+export function getPickupQr(outTradeNo) {
+	return request({ url: `/orders/${outTradeNo}/pickup-qr` })
+}
+
 export function reviewOrder(outTradeNo, rating, content = '') {
 	return request({
 		url: `/orders/${outTradeNo}/review`,

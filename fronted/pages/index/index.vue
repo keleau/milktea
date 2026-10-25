@@ -63,6 +63,17 @@
 				</view>
 			</view>
 
+			<view class="scan-row" hover-class="hv" @tap="scanTable">
+				<view class="scan-icon">
+					<uni-icons type="scan" size="22" color="#8B5E3C"></uni-icons>
+				</view>
+				<view class="scan-body">
+					<text class="scan-title">扫码点餐</text>
+					<text class="scan-sub">扫桌面二维码，自动识别门店和桌号</text>
+				</view>
+				<text class="scan-arrow">›</text>
+			</view>
+
 			<view class="grid-row">
 				<view class="g-item" hover-class="hv" @tap="comingSoon">
 					<uni-icons type="cart" size="22" color="#5A4F43"></uni-icons>
@@ -135,9 +146,13 @@
 import { ref, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { getLines, getProducts } from '@/common/api/catalog'
+import { resolveTable } from '@/common/api/tables'
 import { ensureLogin, fetchMe } from '@/common/api/auth'
+import { showError } from '@/common/api/request'
 import { levelParts, toDrink } from '@/common/api/adapters'
 import { getCachedUser } from '@/common/api/token'
+import { saveTableContext } from '@/common/store/table'
+import { scanCode, isScanCancel } from '@/common/utils/scan'
 
 // 状态栏高度：海报轮播沉浸到状态栏之下
 const statusBarHeight = uni.getWindowInfo().statusBarHeight
@@ -228,6 +243,26 @@ const goBanner = (b) => {
 }
 const toMenu = () => {
 	uni.switchTab({ url: '/pages/menu/index' })
+}
+const scanTable = async () => {
+	let scene = ''
+	try {
+		scene = await scanCode()
+	} catch (error) {
+		if (!isScanCancel(error)) uni.showToast({ title: '扫码失败，请重试', icon: 'none' })
+		return
+	}
+	uni.showLoading({ title: '识别桌号…' })
+	try {
+		const table = await resolveTable(scene)
+		uni.hideLoading()
+		saveTableContext(table)
+		uni.showToast({ title: `${table.tableNo} 桌 · ${table.storeName}`, icon: 'none' })
+		setTimeout(() => uni.switchTab({ url: '/pages/menu/index' }), 500)
+	} catch (error) {
+		uni.hideLoading()
+		showError(error)
+	}
 }
 const toDetail = (id) => {
 	uni.navigateTo({ url: '/pages/detail/index?id=' + id })
@@ -554,6 +589,48 @@ page {
 	width: 2rpx;
 	background: #f5efe7;
 	margin: 10rpx 0;
+}
+
+/* 扫码点餐：桌号上下文入口 */
+.scan-row {
+	display: flex;
+	align-items: center;
+	margin: 24rpx 0 4rpx;
+	padding: 22rpx 24rpx;
+	border-radius: 28rpx;
+	background: #fdf1e4;
+}
+.scan-icon {
+	flex-shrink: 0;
+	width: 68rpx;
+	height: 68rpx;
+	border-radius: 50%;
+	background: #ffffff;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+.scan-body {
+	flex: 1;
+	min-width: 0;
+	margin-left: 18rpx;
+	display: flex;
+	flex-direction: column;
+}
+.scan-title {
+	font-size: 30rpx;
+	font-weight: bold;
+	color: #3d3229;
+}
+.scan-sub {
+	margin-top: 4rpx;
+	font-size: 22rpx;
+	color: #8c8177;
+}
+.scan-arrow {
+	flex-shrink: 0;
+	font-size: 32rpx;
+	color: #b7ab9e;
 }
 
 /* 四宫格（裸线性图标，热项彩色圆）——弱化为辅助入口 */

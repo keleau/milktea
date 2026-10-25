@@ -20,6 +20,7 @@ from app.models import (
 from app.services.coupons import refresh_status
 from app.services.member import change_points
 from app.services.pricing import quote
+from app.tables import table_exists
 
 
 def get_owned_order(db: Session, user: User, out_trade_no: str) -> Order:
@@ -88,6 +89,13 @@ def create_order(
     result = quote(db, user.id, payload)
     store = result["store"]
 
+    table_no = (payload.get("table_no") or "").strip().upper() or None
+    if table_no:
+        if payload["mode"] != "pickup":
+            raise BizError(1001, "堂食订单只能选自取", 400)
+        if not table_exists(store.id, table_no):
+            raise BizError(1004, "桌号不存在，请重新扫码", 404)
+
     address = None
     if payload["mode"] == "delivery":
         address_id = payload.get("address_id")
@@ -111,6 +119,7 @@ def create_order(
         coupon_cut=result["coupon_cut"],
         total=result["total"],
         pick_code=None,
+        table_no=table_no,
         address_id=address.id if address is not None else None,
         address_name=address.name if address is not None else None,
         address_phone=address.phone if address is not None else None,

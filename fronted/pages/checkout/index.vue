@@ -2,7 +2,7 @@
 	<view class="page" v-if="draft">
 		<!-- 取餐方式 -->
 		<view class="panel">
-			<view class="mode-seg">
+			<view class="mode-seg" v-if="!tableNo">
 				<view class="seg-item" :class="{ on: mode === 'pickup' }" @tap="switchMode('pickup')">
 					<text class="seg-t">自取</text>
 					<text class="seg-s">免排队</text>
@@ -12,7 +12,14 @@
 					<text class="seg-s">送到家</text>
 				</view>
 			</view>
-			<view class="mode-info" v-if="mode === 'pickup'">
+			<view class="mode-info table-info" v-if="tableNo">
+				<view class="ti-row">
+					<text class="ti-tag">堂食</text>
+					<text class="ti-no">{{ tableNo }} 桌</text>
+				</view>
+				<text class="mi-sub">{{ store ? store.name : '门店加载中…' }} · 做好后请到吧台取餐</text>
+			</view>
+			<view class="mode-info" v-else-if="mode === 'pickup'">
 				<text class="mi-main">{{ store ? store.name : '门店加载中…' }}</text>
 				<text class="mi-sub">出杯约 {{ preview.estimated_ready_minutes || 10 }} 分钟，请留意取餐码</text>
 			</view>
@@ -109,6 +116,8 @@ const preview = ref({
 
 const idempotencyKey = `CAT-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
 
+const tableNo = computed(() => (draft.value && draft.value.tableNo) || '')
+
 const selectedAddress = computed(() => {
 	if (!addresses.value.length) return null
 	return addresses.value.find(a => a.id === selectedAddressId.value)
@@ -134,7 +143,7 @@ const loadAddresses = async () => {
 onLoad(async () => {
 	draft.value = getCheckoutDraft()
 	if (!draft.value) return
-	mode.value = draft.value.mode === 'delivery' ? 'delivery' : 'pickup'
+	mode.value = draft.value.tableNo || draft.value.mode !== 'delivery' ? 'pickup' : 'delivery'
 	selectedAddressId.value = draft.value.addressId || 0
 
 	try {
@@ -201,6 +210,10 @@ const refreshPreview = async () => {
 
 const switchMode = (next) => {
 	if (mode.value === next) return
+	if (tableNo.value) {
+		uni.showToast({ title: '堂食订单仅支持自取', icon: 'none' })
+		return
+	}
 	mode.value = next
 	refreshPreview()
 }
@@ -240,6 +253,7 @@ const submitOrder = async () => {
 			mode: mode.value,
 			address_id: mode.value === 'delivery' ? selectedAddress.value.id : null,
 			coupon_id: couponId.value || null,
+			table_no: tableNo.value || null,
 			remark: '',
 			items: toOrderItems(draft.value.items)
 		}, idempotencyKey)
@@ -337,6 +351,23 @@ page {
 	margin-top: 8rpx;
 	font-size: 24rpx;
 	color: #8c8177;
+}
+.ti-row {
+	display: flex;
+	align-items: center;
+}
+.ti-tag {
+	padding: 4rpx 14rpx;
+	border-radius: 10rpx;
+	background: #e8833a;
+	font-size: 22rpx;
+	color: #ffffff;
+}
+.ti-no {
+	margin-left: 16rpx;
+	font-size: 34rpx;
+	font-weight: bold;
+	color: #3d3229;
 }
 
 /* 清单 */

@@ -29,6 +29,7 @@ class Settings:
     database_url: str = os.getenv("DATABASE_URL", _SQLITE_URL)
     wechat_appid: str = os.getenv("WECHAT_APPID", "").strip()
     wechat_secret: str = os.getenv("WECHAT_SECRET", "").strip()
+    staff_pin: str = os.getenv("STAFF_PIN", "").strip()
     sql_echo: bool = os.getenv("SQL_ECHO", "").strip().lower() in {"1", "true", "yes", "on"}
     access_token_ttl: int = 7 * 24 * 3600
     refresh_token_ttl: int = 30 * 24 * 3600
