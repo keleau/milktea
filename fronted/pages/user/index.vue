@@ -117,7 +117,7 @@ import { onShow } from '@dcloudio/uni-app'
 import { ensureLogin, fetchMe, updateNickname, uploadAvatar } from '@/common/api/auth'
 import { getOrderCounts } from '@/common/api/orders'
 import { showError } from '@/common/api/request'
-import { levelParts } from '@/common/api/adapters'
+import { levelParts, resolveImage } from '@/common/api/adapters'
 import { getCachedUser } from '@/common/api/token'
 import { setOrdersFilter } from '@/common/store/session'
 
@@ -131,9 +131,12 @@ const user = ref(getCachedUser() || {
 })
 const counts = ref({ pending_pay: 0, making: 0, completed: 0, cancelled: 0 })
 const uploading = ref(false)
+const uploadedAvatar = ref('')
 
 const level = computed(() => levelParts(user.value.level))
-const avatarSrc = computed(() => user.value.avatar || '/static/resource/images/avatar.jpg')
+const avatarSrc = computed(
+	() => uploadedAvatar.value || resolveImage(user.value.avatar) || '/static/resource/images/avatar.jpg'
+)
 
 onShow(() => {
 	loadProfile()
@@ -168,6 +171,8 @@ const changeAvatar = () => {
 			try {
 				const avatar = await uploadAvatar(file.tempFilePath)
 				user.value = { ...user.value, avatar }
+				// 微信小程序不能显示后端 HTTP 头像，本次会话先用刚选中的本地图预览
+				uploadedAvatar.value = file.tempFilePath
 				uni.showToast({ title: '头像已更新', icon: 'success' })
 			} catch (error) {
 				showError(error)

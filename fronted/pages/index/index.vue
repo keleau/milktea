@@ -140,7 +140,7 @@ import { levelParts, toDrink } from '@/common/api/adapters'
 import { getCachedUser } from '@/common/api/token'
 
 // 状态栏高度：海报轮播沉浸到状态栏之下
-const statusBarHeight = uni.getSystemInfoSync().statusBarHeight
+const statusBarHeight = uni.getWindowInfo().statusBarHeight
 const bannerH = 700 + statusBarHeight * 2 + 'rpx'
 // 胶囊定位：海报文字从微信胶囊底部起排，避免被刘海/状态栏遮挡
 const menuBtn = uni.getMenuButtonBoundingClientRect ? uni.getMenuButtonBoundingClientRect() : null

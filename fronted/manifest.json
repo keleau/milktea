@@ -61,5 +61,8 @@
     "mp-toutiao" : {
         "usingComponents" : true
     },
+    "uniStatistics" : {
+        "enable" : false
+    },
     "vueVersion" : "3"
 }

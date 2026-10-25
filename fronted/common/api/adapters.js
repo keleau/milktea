@@ -21,6 +21,27 @@ export const money = (value) => Number(value || 0)
 /** 金额保留两位，去掉浮点误差 */
 export const fixed = (value) => Number(Number(value || 0).toFixed(2))
 
+/** 小程序包内已有的图片：后端静态图与它们同名，可直接用本地文件 */
+const LOCAL_IMAGE_FILES = new Set([
+	'avatar.jpg',
+	...Array.from({ length: 12 }, (_, index) => `drink_${index + 1}.jpg`)
+])
+
+/**
+ * 微信小程序 <image> 不再接受 http:// 地址。
+ * 后端静态图与本地资源同名时改用本地文件；其余 HTTP 图片在微信端返回占位值。
+ */
+export function resolveImage(url, fallback = '') {
+	const value = String(url || '')
+	if (!value) return fallback
+	const name = value.split(/[?#]/)[0].split('/').pop()
+	if (LOCAL_IMAGE_FILES.has(name)) return `/static/resource/images/${name}`
+	// #ifdef MP-WEIXIN
+	if (value.startsWith('http://')) return fallback
+	// #endif
+	return value
+}
+
 /** 距离：米 → 205m / 1.2km */
 export function formatDistance(meters) {
 	const value = Number(meters) || 0
@@ -48,7 +69,7 @@ export function toDrink(product) {
 		hot: !!product.is_hot,
 		isNew: !!product.is_new,
 		desc: product.desc || '',
-		img: product.image || '',
+		img: resolveImage(product.image),
 		stock: product.stock || 0,
 		onSale: product.on_sale !== false
 	}
@@ -112,7 +133,7 @@ export function toOrderSummary(order) {
 	return {
 		...order,
 		shortNo: (order.out_trade_no || '').slice(-8),
-		img: first ? first.image : '',
+		img: first ? resolveImage(first.image) : '',
 		name: first ? first.name : '',
 		spec: first ? [first.ice, first.sugar, first.topping_names].filter(Boolean).join(' / ') : '',
 		count,
@@ -127,6 +148,7 @@ export function toOrderSummary(order) {
 export function toOrder(order) {
 	return {
 		...toOrderSummary(order),
+		items: (order.items || []).map((item) => ({ ...item, image: resolveImage(item.image) })),
 		createText: formatTime(order.create_time),
 		payText: formatTime(order.pay_time),
 		finishText: formatTime(order.finish_time),

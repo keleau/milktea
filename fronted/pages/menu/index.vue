@@ -287,7 +287,7 @@ const loading = ref(false)
 const unclaimedCount = computed(() => coupons.value.filter((cp) => !cp.claimed).length)
 
 // 沉浸式顶栏
-const sys = uni.getSystemInfoSync()
+const sys = uni.getWindowInfo()
 const statusBarHeight = sys.statusBarHeight
 const safeTop = statusBarHeight + 4 + 'px'
 // 右侧给微信原生胶囊（···|⊙）留位，避免搜索按钮被压住

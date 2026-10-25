@@ -71,8 +71,7 @@ export const REQUEST_TIMEOUT = 15000
 | 微信开发者工具 | `http://127.0.0.1:8000` | `manifest.json` 已设 `urlCheck: false` |
 | 手机真机 / 预览 | `http://电脑局域网IP:8000`（如 `http://192.168.1.8:8000`） | 后端用 `--host 0.0.0.0` 启动；手机与电脑同一 Wi-Fi；后端 `.env` 的 `BASE_URL` 也要改成同一地址，否则图片仍是 127.0.0.1 |
 
-> 后端返回的 `image` / `avatar` 是**完整 URL**，前端直接绑定 `:src`，不要再拼 `API_BASE_URL`。
-> 生产环境把 `API_BASE_URL` 换成 HTTPS 域名，并把域名加入微信公众平台的 request 合法域名。
+> 后端返回的 `image` / `avatar` 是**完整 URL**，前端不要再拼 `API_BASE_URL`。`common/api/adapters.js` 的 `resolveImage()` 会把与小程序包内同名的商品图映射为 `/static/resource/images/*`：新版微信基础库已不允许 `<image>` 加载 HTTP 图片，映射后本地商品图可正常显示；上传头像等未知 HTTP 图片在微信端返回空值，页面回退到本地默认头像。生产环境把 `API_BASE_URL` 与后端 `BASE_URL` 换成 HTTPS 域名，并把域名加入微信公众平台的 request 合法域名。
 
 ### 2.2 后端
 
@@ -233,7 +232,7 @@ App.vue onLaunch
 | `line_id` | `drink.line` | 用于 `lineOf()` 找颜色/标签 |
 | `orig_price` | `drink.orig` | 有值显示会员价划线 |
 | `is_hot` / `is_new` | `drink.hot` / `drink.isNew` | 标签、分节 |
-| `image` | `drink.img` | 完整 URL，直接给 `<image>` |
+| `image` | `drink.img` | 经 `resolveImage()` 映射为本地商品图；HTTPS 环境保留原 URL |
 | `price` | `drink.price` | 展示价；最终价以后端试算为准 |
 | `toppings[].id` | 购物车 `toppingIds` | 下单传 ID，不传价格 |
 
@@ -561,7 +560,7 @@ curl -s "$BASE/orders?state=pending_pay" -H "Authorization: Bearer $TOKEN"
 ### 8.2 前端侧检查点
 
 - 冷启动自动登录成功，`milk_access_token` / `milk_user` 已写入。
-- 菜单图片能加载（URL 以 `http://127.0.0.1:8000/static/` 开头）。
+- 菜单图片能加载：后端 `image` 是 HTTP URL，但页面实际渲染 `/static/resource/images/drink_*.jpg` 本地图，控制台不应再出现 HTTP 图片警告。
 - 切换「经典 / 会员专享价 / 新品 / 我的常点」时商品变化；「我的常点」未登录时会先登录。
 - 领券后按钮变「已领取」，我的页券数 +1（演示账号本身已领完，需换新账号验证）。
 - 结算页金额与 `/orders/price-preview` 完全一致；切换自取/外送时打包费变化。
@@ -599,7 +598,7 @@ curl -s "$BASE/orders?state=pending_pay" -H "Authorization: Bearer $TOKEN"
 3. **demo 账号共享**：订单、积分、券的修改会写进默认 `milktea.db`，多人同时演示会互相影响。需要隔离时复制一份数据库或换独立登录 code。
 4. **待支付订单不会自动超时取消**：后端的 15 分钟超时策略未实现定时任务；券会一直锁定，需手动取消订单释放。演示完请取消未支付订单。
 5. **库存在支付时扣减**：创建订单只校验库存，支付回调才扣库存；高并发下真实项目需要更严格的锁与超时释放。
-6. **图片域名**：真机访问时 `BASE_URL` 与 `API_BASE_URL` 必须同步改成电脑局域网 IP；否则接口能通但图片打不开。
+6. **图片域名**：12 张商品图已随小程序打包，`resolveImage()` 会优先使用本地图，因此不再依赖后端图床；上传头像仍以 HTTP 地址保存，微信开发者工具/真机需 HTTPS 才能显示，开发期刷新后会回退到本地默认头像。真机调用接口时 `BASE_URL` 与 `API_BASE_URL` 仍需同步改成电脑局域网 IP。
 7. **搜索入口**：后端 `GET /menu/products?keyword=` 已支持，当前点单页搜索按钮仍是占位交互，未接 UI。
 
 ---
@@ -630,3 +629,10 @@ curl -s "$BASE/orders?state=pending_pay" -H "Authorization: Bearer $TOKEN"
 ### 11.3 尚需在 HBuilderX 里做的检查
 
 本仓库是 HBuilderX 工程，未提供可直接运行的 CLI/H5 构建依赖，因此页面级交互未在浏览器或微信开发者工具中实际点击验证。请按 8.2 检查点运行一遍；重点看头像上传（`uni.chooseMedia` + `uni.uploadFile`）和真实机型上的图片域名（`config.js` 的 `API_BASE_URL`、后端 `.env` 的 `BASE_URL` 需同时改为局域网 IP）。
+
+### 11.4 微信开发者工具控制台排障（2026-10-25）
+
+- **ENOENT `common/data/index.js` / `common/data/shop.js` / `common/utils/image.js`**：旧增量构建缓存里的文件清单，源码和当前 `unpackage/dist` 都已经不再引用这些模块。重新运行到微信开发者工具（完整编译）即可；若仍出现，在开发者工具执行「工具 → 清缓存 → 全部清除」后重编。构建产物被运行中的 HBuilderX 占用时无法从外部删除，清理由重新编译完成。
+- **`<wx-image> 图片链接 ... 不再支持 HTTP 协议`**：基础库 3.17.4 起 `<image>` 拒绝 HTTP。`adapters.js` 新增 `resolveImage()`，把后端 `http://.../static/images/drink_*.jpg`、`avatar.jpg` 映射为包内 `/static/resource/images/*`；订单详情 `items[].image` 同样映射。上传头像属于运行时文件，微信端先显示本地预览、重启后回退默认头像，正式部署需 HTTPS。
+- **`wx.getSystemInfoSync is deprecated`**：首页和点单页改用 `uni.getWindowInfo()`；`manifest.json` 已关闭 `uniStatistics`，减少 uni 统计产生的同类调用。
+- **仍会出现的日志**：`调试器日志回显 socket`、`preloaded ...`、`Subpackages: N/A`、`LazyCodeLoading` 属于微信开发者工具/uni 框架内部提示，不影响页面运行。

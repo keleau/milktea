@@ -446,6 +446,7 @@ pending_pay ──支付回调──> making ──complete──> completed
 - `serialize_*` 用 `assets_url()` 拼 `settings.base_url`。
 - 已是 `http(s)` 的地址原样返回。
 - 数据库迁移/CDN 时只改 `BASE_URL`，无需改数据。
+- 微信基础库已不允许 `<image>` 直接加载 HTTP：前端 `resolveImage()` 会把同名的 12 张商品图和默认头像映射到小程序包内 `static/resource/images`；上传头像仍返回 HTTP，正式部署需把 `BASE_URL` 换成 HTTPS 才能长期显示。
 
 ### 6.4 快照
 
@@ -642,7 +643,7 @@ curl -s -X POST http://127.0.0.1:8000/api/v1/payments/wechat/notify \
 
 - `API_BASE_URL` 与后端 `BASE_URL` 一致。
 - 冷启动后 `milk_access_token` 有值；`GET /users/me` 的昵称/积分显示在首页、我的页。
-- 菜单图片来自 `http://127.0.0.1:8000/static/images/...`。
+- 菜单接口返回 `http://127.0.0.1:8000/static/images/...`，微信端由 `resolveImage()` 映射成本地商品图。
 - 结算金额与试算完全一致；自取/外送切换后 `pack_fee` 变化。
 - 支付成功后订单变「制作中」、出现取餐码；`orders`、`products.stock`、`user_coupons`、`users.points`、`points_logs` 同时变化。
 - 取消待支付订单后券解锁；取消制作中订单后库存/积分回滚。
