@@ -86,8 +86,10 @@ cd fastapi_demo
 ```
 
 - 默认使用 `fastapi_demo/database/milktea.db`。
-- 用 MySQL 时先在 Navicat 导入 `database/schema_mysql.sql`，再在 `fastapi_demo/.env` 写 `DATABASE_URL=mysql+pymysql://root:密码@127.0.0.1:3306/milktea?charset=utf8mb4`。
-- `.env` 已被 `.gitignore` 忽略，密码不写进前端、不提交仓库。
+- `fastapi_demo/.env` 不存在时，先复制 `fastapi_demo/.env.example` 为 `.env`；模板里的 `DATABASE_URL` 默认是注释状态。
+- 用 MySQL 时先在 Navicat 导入 `database/schema_mysql.sql`，再取消 `.env` 里 `DATABASE_URL` 的注释并改成自己的密码。
+- 想用真实微信登录，在 `.env` 填 `WECHAT_APPID` 和 `WECHAT_SECRET` 后重启后端；两项都为空时继续用演示模拟登录。
+- `.env` 已被 `.gitignore` 忽略，密码与 AppSecret 不写进前端、不提交仓库。
 - 打开 `http://127.0.0.1:8000/docs` 确认服务正常。
 
 ### 2.3 登录与演示账号
@@ -97,7 +99,7 @@ cd fastapi_demo
 | 入口 | 请求体 | 结果 |
 |---|---|---|
 | 演示会员登录 | `{"code":"demo"}` | 固定进入预置会员 1001，带积分/券/订单 |
-| 微信一键登录 | `{"code":"<uni.login code>","mock_id":"device-..."}` | 后端按 `mock_id` 哈希出 openid，同一设备重复登录复用同一账号；新账号数据为空 |
+| 微信一键登录 | `{"code":"<uni.login code>","mock_id":"device-..."}` | 后端配了 AppSecret 时用微信 `code2session` 换真实 openid；没配时按 `mock_id` 哈希出模拟 openid。新账号数据为空 |
 
 `code=demo` 的预置数据：
 
@@ -111,7 +113,7 @@ cd fastapi_demo
 
 > 演示会员是**共享账号**：所有点「演示会员登录」的设备看到同一份订单/积分数据。需要隔离数据时点「微信一键登录」，后端会按本机 `mock_id` 自动注册独立账号。
 >
-> 当前后端没有微信 AppSecret，`uni.login()` 的 code 不会拿去换取 openid，只是满足接口参数；真实接入需在后端调用 `code2session`，并用返回的 `openid` 取代 `mock_id` 的哈希逻辑。
+> 是否走真实微信登录由后端 `.env` 决定：`WECHAT_APPID` + `WECHAT_SECRET` 都填了才调用 `code2session`；未配置时 `uni.login()` 的 code 只满足接口参数，身份由 `mock_id` 模拟。前端两种情况下传参相同，不需要改代码。
 
 ---
 
@@ -688,7 +690,7 @@ curl -s "$BASE/orders?state=pending_pay" -H "Authorization: Bearer $TOKEN"
 ### 11.6 登录功能（2026-10-25）
 
 - 入口：`pages/login/index.vue`，两个按钮——「微信一键登录」和「演示会员登录」；`pages.json` 把它放在第一页，实现启动先登录。
-- 微信登录：前端 `uni.login()` 取 code，再带上本机 `milk_mock_id`（首次随机生成并持久化）调用 `/auth/wx-login`。后端按 `device:<mock_id>` 哈希成稳定 openid，所以同一设备重复登录仍是同一账号，清缓存后会生成新账号。
+- 微信登录：前端 `uni.login()` 取 code，再带上本机 `milk_mock_id`（首次随机生成并持久化）调用 `/auth/wx-login`。后端在 `.env` 配好 `WECHAT_APPID` + `WECHAT_SECRET` 时调用微信 `code2session` 换真实 openid；未配置时按 `device:<mock_id>` 哈希成稳定模拟 openid。前端代码两种情况通用。
 - 演示会员：`code=demo` → 预置用户 1001，适合展示有积分/券/订单的完整效果。
 - 会话守卫：`ensureLogin()` 不再静默注册；无 token 或刷新失败时 `reLaunch` 登录页，抛 `silent` 错误，页面不会重复弹提示。
 - 退出：我的页「退出登录」→ 清 token/用户缓存 → 回登录页；门店选择和结算草稿保留。

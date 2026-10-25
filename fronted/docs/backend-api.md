@@ -274,7 +274,7 @@
 }
 ```
 
-> 新用户默认 V1、0 积分、0 券，可到券包中心领取。演示环境支持用 `code = "demo"` 登录预置会员（id 1001、V2、320 积分、2 张券）；带 `mock_id` 时后端按 `device:<mock_id>` 哈希生成稳定 openid 并自动注册，不带才退回按 code 哈希。真实接入微信后由后端 `code2session` 得到 openid，`mock_id` 应移除。
+> 新用户默认 V1、0 积分、0 券，可到券包中心领取。演示环境支持用 `code = "demo"` 登录预置会员（id 1001、V2、320 积分、2 张券）。后端 `.env` 配好 `WECHAT_APPID` + `WECHAT_SECRET` 时调用微信 `code2session` 换真实 openid；未配置时按 `mock_id` 哈希生成稳定模拟 openid，不带 `mock_id` 才退回按 code 哈希。
 
 **PATCH /users/me** 请求 `{ "nickname": "布奇头号粉丝" }`，响应 data 为更新后的 `User`。
 

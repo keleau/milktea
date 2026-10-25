@@ -27,11 +27,17 @@ class Settings:
     secret_key: str = os.getenv("APP_SECRET", "simaotea-demo-secret-change-me")
     base_url: str = os.getenv("BASE_URL", "http://127.0.0.1:8000").rstrip("/")
     database_url: str = os.getenv("DATABASE_URL", _SQLITE_URL)
+    wechat_appid: str = os.getenv("WECHAT_APPID", "").strip()
+    wechat_secret: str = os.getenv("WECHAT_SECRET", "").strip()
     sql_echo: bool = os.getenv("SQL_ECHO", "").strip().lower() in {"1", "true", "yes", "on"}
     access_token_ttl: int = 7 * 24 * 3600
     refresh_token_ttl: int = 30 * 24 * 3600
     idempotency_ttl: int = 600
     max_avatar_bytes: int = 2 * 1024 * 1024
+
+    @property
+    def wechat_login_enabled(self) -> bool:
+        return bool(self.wechat_appid and self.wechat_secret)
 
     @property
     def image_url(self) -> str:

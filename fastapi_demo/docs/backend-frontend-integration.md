@@ -191,11 +191,13 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 { "code": "081abc", "mock_id": "device-1729-abc123", "nickname": "猫友1234", "avatar": "" }
 ```
 
-- `code == "demo"` → openid 固定 `mock-openid-demo` → 预置用户 1001。
-- 传了 `mock_id` → `sha256("device:" + mock_id)` 前 24 位拼 `mock-` 作为 openid；不存在则自动注册 V1 / 0 积分 / 0 券。
-- 未传 `mock_id` → 退回 `sha256(code)` 前 24 位，行为与旧版一致。
+- `.env` 配了 `WECHAT_APPID` + `WECHAT_SECRET` 且 `code != "demo"` → 后端调用微信 `jscode2session`，用返回的 `openid` 查找/注册用户。`session_key` 只留在服务端，不返回前端。
+- `code == "demo"` → openid 固定 `mock-openid-demo` → 预置用户 1001（即使已配置真实微信登录也保留，方便演示）。
+- 未配 AppSecret、传了 `mock_id` → `sha256("device:" + mock_id)` 前 24 位拼 `mock-` 作为 openid；不存在则自动注册 V1 / 0 积分 / 0 券。
+- 未配 AppSecret、未传 `mock_id` → 退回 `sha256(code)` 前 24 位，行为与旧版一致。
 - 昵称/头像可选，传了会更新已有用户。
-- `mock_id` 由前端生成并持久化在本地，长度 1~64；这样真实 `uni.login()` code 每次都变，同一台设备仍能复用账号。接入真实微信后应改为 `code2session` 返回的 `openid`。
+- `mock_id` 由前端生成并持久化在本地，长度 1~64；只用于未接真实微信时的模拟身份。
+- 真实微信返回错误（如 code 无效、AppID 与小程序不一致）→ `1001` + 微信错误信息；微信服务不可达 → `9000`。
 
 响应：
 
@@ -493,17 +495,19 @@ pending_pay ──支付回调──> making ──complete──> completed
 
 1. Navicat 连接本地 MySQL。
 2. 打开并运行 `database/schema_mysql.sql`（创建 `milktea` 库、16 张表、种子数据）。
-3. 复制 `.env.example` 为 `.env`：
+3. 复制 `.env.example` 为 `.env`（模板里的 `DATABASE_URL` 默认是注释状态，用 MySQL 时再取消注释）：
 
 ```ini
 DATABASE_URL=mysql+pymysql://root:你的密码@127.0.0.1:3306/milktea?charset=utf8mb4
 BASE_URL=http://127.0.0.1:8000
 # SQL_ECHO=1  # 需要看 SQL 时打开
 # APP_SECRET=换成一个足够长的随机串
+# WECHAT_APPID=wx...      # 想用真实微信登录时填
+# WECHAT_SECRET=...       # 只放后端，不提交
 ```
 
 4. 重启 uvicorn。日志无建表警告、`/api/v1/menu/products` 有数据即成功。
-5. `.env` 已在 `.gitignore` 中，密码不会进仓库。
+5. `.env` 已在 `.gitignore` 中，密码与 AppSecret 不会进仓库。
 
 驱动：`PyMySQL[rsa]`；`caching_sha2_password` 需要 `cryptography`，requirements 已含 `PyMySQL[rsa]`。
 
@@ -684,7 +688,9 @@ curl -s -X POST http://127.0.0.1:8000/api/v1/payments/wechat/notify \
 
 - `APP_SECRET` 默认值只能用于本地演示，部署必须换随机长串。
 - `.env` 不提交；聊天、文档、前端代码里不出现数据库密码。
-- 微信登录、微信支付、退款均为模拟；notify 公开且不验签，**不能用于生产**。`mock_id` 只是前端本地标识，不是可信身份，任何人都能伪造，生产必须用 `code2session` 的 openid。
+- 微信支付、退款为模拟；notify 公开且不验签，**不能用于生产**。
+- 登录分两种：配置 `WECHAT_APPID` + `WECHAT_SECRET` 后走真实 `code2session`，`openid` 由微信签发；未配置时才用 `mock_id` 模拟。`mock_id` 是前端本地标识，任何人都能伪造，**不能当作可信身份**。
+- `WECHAT_SECRET` 只放后端 `.env`，不要写进前端、文档、聊天或提交仓库。
 - CORS `*` 仅方便联调；生产收紧到具体域名。
 - 上传头像只校验 MIME 与大小，演示够用；生产还应做图片重编码、病毒扫描、对象存储。
 - 订单超时取消、券锁定超时释放未实现定时任务；演示结束请手动取消未支付订单。
