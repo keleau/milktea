@@ -6,3 +6,8 @@ __pycache__/
 
 # 运行时上传的头像
 fastapi_demo/static/avatars/
+
+# SQLite 运行时临时文件（milktea.db 本身保留）
+fastapi_demo/database/*.db-journal
+fastapi_demo/database/*.db-wal
+fastapi_demo/database/*.db-shm

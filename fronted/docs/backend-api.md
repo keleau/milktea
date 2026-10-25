@@ -2,6 +2,7 @@
 
 > 依据当前小程序前端（`pages/` + `common/data/`）的数据模型与交互整理，用于替换本地 storage 演示数据。
 > 所有接口默认返回 JSON，时间统一为 **毫秒时间戳**（与前端 `Date.now()` 一致），金额单位 **元（float，保留 2 位）**。
+> 字段、枚举与表结构的唯一数据契约见根目录 [`docs/data-dictionary.md`](../../docs/data-dictionary.md)；数据库脚本在 [`fastapi_demo/database/`](../../fastapi_demo/database/)。
 
 ---
 
@@ -772,6 +773,11 @@ fastapi_demo/
 │   ├── data.py                 # 种子数据 + 内存存储
 │   ├── deps.py
 │   └── services/{pricing,orders}.py
+├── database/                   # 数据库交付物（当前未接入运行时）
+│   ├── schema_sqlite.sql
+│   ├── schema_mysql.sql
+│   ├── build_sqlite.py
+│   └── milktea.db
 └── static/images/              # 12 款饮品图 + 默认头像（复用前端资源）
 ```
 
