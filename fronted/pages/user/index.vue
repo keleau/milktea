@@ -4,12 +4,19 @@
 		<view class="member-card">
 			<view class="mc-top">
 				<view class="avatar-wrap" @tap="changeAvatar">
-					<image class="avatar" :src="avatarSrc" mode="aspectFill" />
+					<image class="avatar" :src="avatarSrc" mode="aspectFill" @error="onAvatarError" />
 					<view class="avatar-cam">
 						<view class="cam-body"></view>
 						<view class="cam-dot"></view>
 					</view>
 					<view class="avatar-loading" v-if="uploading">上传中</view>
+					<!-- #ifdef MP-WEIXIN -->
+					<button
+						class="avatar-hit"
+						open-type="chooseAvatar"
+						@chooseavatar="onChooseAvatar"
+					></button>
+					<!-- #endif -->
 				</view>
 				<view class="mc-user">
 					<view class="mc-name-row">
@@ -103,9 +110,11 @@
 				<input
 					class="name-input"
 					v-model="nameInput"
+					type="nickname"
 					maxlength="20"
-					placeholder="1~20 个字"
+					placeholder="输入或选用微信昵称"
 					focus
+					@blur="syncName"
 				/>
 				<view class="name-actions">
 					<view class="n-cancel" hover-class="hv" @tap="nameOpen = false">取消</view>
@@ -126,6 +135,8 @@ import { getOrderCounts } from '@/common/api/orders'
 import { showError } from '@/common/api/request'
 import { levelParts, resolveImage } from '@/common/api/adapters'
 import { getCachedUser } from '@/common/api/token'
+import { AVATAR_PREVIEW_KEY } from '@/common/config'
+import { readStorage, removeStorage, writeStorage } from '@/common/utils/storage'
 import { setOrdersFilter } from '@/common/store/session'
 
 const user = ref(getCachedUser() || {
@@ -138,12 +149,23 @@ const user = ref(getCachedUser() || {
 })
 const counts = ref({ pending_pay: 0, making: 0, completed: 0, cancelled: 0 })
 const uploading = ref(false)
-const uploadedAvatar = ref('')
+
+/** 登录页/本页选过头像时，用本地临时路径跨页预览（微信不接受 http 图片） */
+const readAvatarPreview = () => {
+	const preview = readStorage(AVATAR_PREVIEW_KEY, null)
+	return preview && preview.userId === user.value.id ? preview.path : ''
+}
+const uploadedAvatar = ref(readAvatarPreview())
 
 const level = computed(() => levelParts(user.value.level))
 const avatarSrc = computed(
 	() => uploadedAvatar.value || resolveImage(user.value.avatar) || '/static/resource/images/avatar.jpg'
 )
+
+const onAvatarError = () => {
+	uploadedAvatar.value = ''
+	removeStorage(AVATAR_PREVIEW_KEY)
+}
 
 onShow(() => {
 	loadProfile()
@@ -155,39 +177,61 @@ const loadProfile = async () => {
 		const [me, orderCounts] = await Promise.all([fetchMe(), getOrderCounts()])
 		user.value = me
 		counts.value = orderCounts
+		const storedPreview = readAvatarPreview()
+		if (storedPreview) uploadedAvatar.value = storedPreview
 	} catch (error) {
 		showError(error)
 	}
 }
 
 const MAX_SIZE = 2 * 1024 * 1024
+
+const uploadAvatarFile = async (filePath) => {
+	uploading.value = true
+	try {
+		const avatar = await uploadAvatar(filePath)
+		user.value = { ...user.value, avatar }
+		// 微信小程序不能显示后端 HTTP 头像，先记住本地临时路径用于预览
+		uploadedAvatar.value = filePath
+		writeStorage(AVATAR_PREVIEW_KEY, { userId: user.value.id, path: filePath })
+		uni.showToast({ title: '头像已更新', icon: 'success' })
+	} catch (error) {
+		showError(error)
+	} finally {
+		uploading.value = false
+	}
+}
+
+/** 微信原生头像组件（open-type="chooseAvatar"）回调 */
+const onChooseAvatar = (event) => {
+	if (uploading.value) return
+	const filePath = event && event.detail && event.detail.avatarUrl
+	if (filePath) uploadAvatarFile(filePath)
+}
+
+/** 非微信端退回相册/相机选择 */
 const changeAvatar = () => {
 	if (uploading.value) return
+	// #ifdef MP-WEIXIN
+	return
+	// #endif
+	// #ifndef MP-WEIXIN
 	uni.chooseMedia({
 		count: 1,
 		mediaType: ['image'],
 		sourceType: ['album', 'camera'],
 		sizeType: ['compressed'],
-		success: async (res) => {
-			const file = res.tempFiles[0]
+		success: (res) => {
+			const file = res.tempFiles && res.tempFiles[0]
+			if (!file) return
 			if (file.size && file.size > MAX_SIZE) {
 				uni.showToast({ title: '图片不能超过 2MB', icon: 'none' })
 				return
 			}
-			uploading.value = true
-			try {
-				const avatar = await uploadAvatar(file.tempFilePath)
-				user.value = { ...user.value, avatar }
-				// 微信小程序不能显示后端 HTTP 头像，本次会话先用刚选中的本地图预览
-				uploadedAvatar.value = file.tempFilePath
-				uni.showToast({ title: '头像已更新', icon: 'success' })
-			} catch (error) {
-				showError(error)
-			} finally {
-				uploading.value = false
-			}
+			uploadAvatarFile(file.tempFilePath)
 		}
 	})
+	// #endif
 }
 
 const nameOpen = ref(false)
@@ -196,6 +240,11 @@ const nameSaving = ref(false)
 const openName = () => {
 	nameInput.value = user.value.nickname || ''
 	nameOpen.value = true
+}
+/** type="nickname" 选用微信昵称后，blur 的 value 兜底同步一次 */
+const syncName = (event) => {
+	const value = event && event.detail ? event.detail.value : ''
+	if (typeof value === 'string') nameInput.value = value
 }
 const saveName = async () => {
 	if (nameSaving.value) return
@@ -283,6 +332,25 @@ page {
 	width: 120rpx;
 	height: 120rpx;
 	margin-right: 24rpx;
+}
+/* 透明按钮盖在头像上，专门接收微信 open-type="chooseAvatar" 的点击 */
+.avatar-hit {
+	position: absolute;
+	left: 0;
+	top: 0;
+	z-index: 3;
+	width: 120rpx;
+	height: 120rpx;
+	padding: 0;
+	margin: 0;
+	background: transparent;
+	border: none;
+	border-radius: 50%;
+	line-height: 1;
+	opacity: 0;
+}
+.avatar-hit::after {
+	border: none;
 }
 .avatar {
 	width: 120rpx;

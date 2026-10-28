@@ -10,7 +10,7 @@
 
 ## 功能
 
-- **登录**：微信一键登录（`code2session`）+ 演示会员登录，未配置 AppSecret 也能跑
+- **登录**：微信一键登录（`code2session`）+ 演示会员登录；登录后可用微信原生组件（`chooseAvatar` / `type="nickname"`）补头像昵称，未配置 AppSecret 也能跑
 - **点单**：产品线/分类、冷热糖度、加料、门店切换、推荐与新客券
 - **扫码点单**：应用内扫普通二维码；也支持微信「扫一扫」小程序码直达点单页并自动绑定桌号
 - **结算**：自取/外送、优惠券、会员折扣、堂食桌号
@@ -25,7 +25,7 @@
 | 前端 | uni-app + Vue 3 + uni-ui，HBuilderX 工程 |
 | 后端 | FastAPI + SQLAlchemy 2 + Pydantic v2 + Uvicorn |
 | 数据库 | SQLite（默认）/ MySQL（通过 `DATABASE_URL` 切换） |
-| 微信能力 | `code2session` 登录、`wxacode.getUnlimited` 小程序码、access_token 进程内缓存 |
+| 微信能力 | `code2session` 登录、`chooseAvatar` + `type="nickname"` 头像昵称组件、`wxacode.getUnlimited` 小程序码、access_token 进程内缓存 |
 
 ## 目录结构
 
@@ -85,7 +85,7 @@ python -m uvicorn main:app --host 0.0.0.0 --port 8000
 
 ## 演示流程
 
-1. 启动后端，HBuilderX 运行到微信开发者工具，完成登录
+1. 启动后端，HBuilderX 运行到微信开发者工具，完成登录（可顺手选用微信头像和昵称）
 2. 点单页点「扫码」，扫 `fastapi_demo/static/qrcodes/print.html` 中的桌码（或使用编译模式模拟扫码，见下）
 3. 桌号自动绑定 → 选规格加料 → 加入购物车
 4. 结算页确认桌号/优惠 → 提交订单 → 模拟支付
@@ -149,6 +149,7 @@ cd fastapi_demo
 
 - 支付为模拟流程，未接入真实微信支付（需要企业/个体户与商户号）
 - 未配置微信 AppID 时，微信登录使用设备 `mock_id` 生成稳定模拟账号
+- 头像上传后返回 `http://` 静态地址，微信基础库对 HTTP 图片有限制；当前用本地临时路径跨页预览（`milk_avatar_preview`），应用重启后可能失效，部署到 HTTPS 后恢复正常
 - 小程序码的 `trial`/`develop` 版本仅开发者与体验成员可打开
 - access_token 缓存为进程内实现，多进程部署需替换为 Redis 等共享缓存
 - SQLite 适合演示与单机开发；生产环境建议 MySQL，并补齐迁移、并发与库存一致性设计

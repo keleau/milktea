@@ -31,12 +31,20 @@
 			</view>
 
 			<view class="tips">
-				<text class="tip-line">微信登录为演示模拟，不会获取你的微信资料。</text>
-				<text class="tip-line">演示会员已预置积分、优惠券和历史订单。</text>
+				<text class="tip-line">登录后可选用微信头像和昵称，仅用于点单展示。</text>
+				<text class="tip-line">未配置微信 AppID 时，登录使用本机模拟账号。</text>
 			</view>
 		</view>
 
 		<view class="footer">登录即表示使用本演示项目</view>
+
+		<profile-setup
+			v-model:visible="profileOpen"
+			:avatar="profileUser.avatar"
+			:nickname="profileUser.nickname"
+			@saved="onProfileDone"
+			@skip="onProfileSkip"
+		/>
 	</view>
 </template>
 
@@ -46,10 +54,16 @@ import { onLoad } from '@dcloudio/uni-app'
 import { login, loginWithWechat } from '@/common/api/auth'
 import { getAccessToken } from '@/common/api/token'
 import { showError } from '@/common/api/request'
+import { isDefaultNickname } from '@/common/utils/profile'
+import { readStorage, removeStorage, writeStorage } from '@/common/utils/storage'
 import { DEMO_LOGIN_CODE } from '@/common/config'
+
+const PROFILE_SKIP_PREFIX = 'milk_profile_skip_'
 
 const statusBarHeight = uni.getWindowInfo().statusBarHeight || 20
 const loading = ref('')
+const profileOpen = ref(false)
+const profileUser = ref({ avatar: '', nickname: '' })
 
 onLoad(() => {
 	// 已登录直接进首页，避免每次启动都停在登录页
@@ -73,8 +87,54 @@ const submit = async (type, task) => {
 	}
 }
 
-const onWxLogin = () => submit('wx', loginWithWechat)
+const goHome = () => {
+	uni.switchTab({ url: '/pages/index/index' })
+}
+
+const shouldPromptProfile = (user) => {
+	if (!isDefaultNickname(user.nickname)) return false
+	return !readStorage(`${PROFILE_SKIP_PREFIX}${user.id}`, false)
+}
+
+/** 微信登录成功后先补头像昵称，再进首页，接近真实的微信授权流程 */
+const onWxLogin = async () => {
+	if (loading.value) return
+	loading.value = 'wx'
+	try {
+		const user = await loginWithWechat()
+		loading.value = ''
+		uni.showToast({ title: '登录成功', icon: 'success', duration: 800 })
+		if (shouldPromptProfile(user)) {
+			profileUser.value = user
+			profileOpen.value = true
+			return
+		}
+		setTimeout(goHome, 400)
+	} catch (error) {
+		loading.value = ''
+		showError(error)
+	}
+}
+
 const onDemoLogin = () => submit('demo', () => login(DEMO_LOGIN_CODE))
+
+const onProfileDone = (user) => {
+	profileOpen.value = false
+	const key = `${PROFILE_SKIP_PREFIX}${profileUser.value.id}`
+	// 只选了头像、没改昵称时也算处理过，避免下次登录重复弹窗
+	if (user && isDefaultNickname(user.nickname)) {
+		writeStorage(key, true)
+	} else {
+		removeStorage(key)
+	}
+	setTimeout(goHome, 300)
+}
+
+const onProfileSkip = () => {
+	profileOpen.value = false
+	writeStorage(`${PROFILE_SKIP_PREFIX}${profileUser.value.id}`, true)
+	setTimeout(goHome, 300)
+}
 </script>
 
 <style>

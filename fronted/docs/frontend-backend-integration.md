@@ -114,6 +114,8 @@ cd fastapi_demo
 > 演示会员是**共享账号**：所有点「演示会员登录」的设备看到同一份订单/积分数据。需要隔离数据时点「微信一键登录」，后端会按本机 `mock_id` 自动注册独立账号。
 >
 > 是否走真实微信登录由后端 `.env` 决定：`WECHAT_APPID` + `WECHAT_SECRET` 都填了才调用 `code2session`；未配置时 `uni.login()` 的 code 只满足接口参数，身份由 `mock_id` 模拟。前端两种情况下传参相同，不需要改代码。
+>
+> 微信登录成功后，如果账号仍是默认昵称「猫友1234」，会弹出 `components/profile-setup` 完善资料：头像用 `<button open-type="chooseAvatar">`，昵称用 `<input type="nickname">`。两者都是微信官方组件，不是 2022 年已废弃的 `getUserProfile` 授权弹窗。点「稍后再说」会记录 `milk_profile_skip_<userId>`，之后仍可在「我的」里修改。
 
 ---
 
@@ -127,6 +129,8 @@ cd fastapi_demo
 | `common/api/token.js` | 读写 `access_token` / `refresh_token` / 用户缓存，清理会话 |
 | `common/api/request.js` | `uni.request` 封装：拼 URL、带 Bearer、拆 `{code,message,data}`、401 自动刷新、抛 `ApiError` |
 | `common/api/auth.js` | 微信一键登录 / 演示会员登录、`ensureLogin()` 登录守卫、退出登录、改昵称、上传头像 |
+| `common/utils/profile.js` | 判断是否仍是默认昵称「猫友1234」，决定登录后是否弹出完善资料 |
+| `components/profile-setup/profile-setup.vue` | 头像昵称完善弹层：`open-type="chooseAvatar"` + `type="nickname"` |
 | `common/api/catalog.js` | 产品线、商品、规格、榜单、门店 |
 | `common/api/coupons.js` | 券模板、领券、我的券、可用券 |
 | `common/api/orders.js` | 试算、创建、列表、详情、取消、完成、再来一单、评价、支付 |
@@ -172,6 +176,7 @@ uni.showToast({ title: error.message || '请求失败', icon: 'none' })
   ├─ 本地已有 access_token → switchTab 首页
   └─ 没有 → 展示两个登录入口
        ├─ 微信一键登录：uni.login → code + 本机 mock_id
+       │    └─ 新账号（默认昵称）→ 完善头像昵称弹层 → 首页
        └─ 演示会员登录：code=demo
             └─ POST /auth/wx-login
                  └─ data: {access_token, refresh_token, token_type, expires_in, user}

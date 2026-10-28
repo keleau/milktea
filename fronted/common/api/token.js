@@ -2,7 +2,7 @@
  * 登录态缓存：access_token / refresh_token / 用户对象
  * 只做读写，不发请求，避免和 request.js 循环依赖
  */
-import { STORE_KEY, TOKEN_KEYS } from '@/common/config'
+import { AVATAR_PREVIEW_KEY, STORE_KEY, TOKEN_KEYS } from '@/common/config'
 import { readStorage, removeStorage, writeStorage } from '@/common/utils/storage'
 
 export const getAccessToken = () => readStorage(TOKEN_KEYS.access, '')
@@ -32,6 +32,7 @@ export function clearSession() {
 	removeStorage(TOKEN_KEYS.access)
 	removeStorage(TOKEN_KEYS.refresh)
 	removeStorage(TOKEN_KEYS.user)
+	removeStorage(AVATAR_PREVIEW_KEY)
 }
 
 export const getStoreId = () => Number(readStorage(STORE_KEY, 1)) || 1

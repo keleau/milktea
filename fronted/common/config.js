@@ -23,5 +23,8 @@ export const TOKEN_KEYS = {
 	user: 'milk_user'
 }
 
+/** 微信基础库不接受 http 图片，本地上传的头像先用临时路径跨页预览 */
+export const AVATAR_PREVIEW_KEY = 'milk_avatar_preview'
+
 /** 当前选中门店 ID */
 export const STORE_KEY = 'milk_store_id'

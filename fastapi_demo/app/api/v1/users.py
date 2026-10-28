@@ -26,6 +26,19 @@ from app.services.coupons import count_unused, list_for_user
 
 router = APIRouter(prefix="/users", tags=["用户"])
 
+_AVATAR_EXT_BY_TYPE = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
+
+
+def _sniff_image_ext(data: bytes) -> str | None:
+    """微信 chooseAvatar 的临时文件偶尔没有 MIME，按文件头兜底识别"""
+    if data.startswith(b"\xff\xd8\xff"):
+        return "jpg"
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "png"
+    if len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "webp"
+    return None
+
 
 def _coupon_list(db: Session, user_id: int, status: CouponStatus) -> list[dict]:
     coupons = list_for_user(db, user_id)
@@ -57,15 +70,15 @@ async def upload_avatar(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    ext_map = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
-    ext = ext_map.get(file.content_type or "")
-    if ext is None:
-        raise BizError(1001, "仅支持 jpg/png/webp 图片", 400)
     data = await file.read()
     if not data:
         raise BizError(1001, "图片内容为空", 400)
     if len(data) > settings.max_avatar_bytes:
         raise BizError(1001, "头像不能超过 2MB", 400)
+
+    ext = _AVATAR_EXT_BY_TYPE.get(file.content_type or "") or _sniff_image_ext(data)
+    if ext is None:
+        raise BizError(1001, "仅支持 jpg/png/webp 图片", 400)
 
     settings.avatar_dir.mkdir(parents=True, exist_ok=True)
     filename = f"user_{user.id}_{int(time.time())}.{ext}"
