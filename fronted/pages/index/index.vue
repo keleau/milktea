@@ -63,6 +63,17 @@
 				</view>
 			</view>
 
+			<view class="scan-row" hover-class="hv" @tap="toAi">
+				<view class="scan-icon">
+					<uni-icons type="chat" size="22" color="#8B5E3C"></uni-icons>
+				</view>
+				<view class="scan-body">
+					<text class="scan-title">AI点单</text>
+					<text class="scan-sub">说出想喝什么，智能助手帮你查库存、下单</text>
+				</view>
+				<text class="scan-arrow">›</text>
+			</view>
+
 			<view class="scan-row" hover-class="hv" @tap="scanTable">
 				<view class="scan-icon">
 					<uni-icons type="scan" size="22" color="#8B5E3C"></uni-icons>
@@ -243,6 +254,9 @@ const goBanner = (b) => {
 }
 const toMenu = () => {
 	uni.switchTab({ url: '/pages/menu/index' })
+}
+const toAi = () => {
+	uni.navigateTo({ url: '/pages/ai/index' })
 }
 const scanTable = async () => {
 	let scene = ''

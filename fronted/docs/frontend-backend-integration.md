@@ -137,6 +137,7 @@ cd fastapi_demo
 | `common/api/users.js` | `/users/me`、订单数量、我的常点、收藏 |
 | `common/api/member.js` | 会员等级、积分明细、积分兑换 |
 | `common/api/addresses.js` | 地址增删改查、设默认 |
+| `common/api/ai.js` | AI 点单对话、会话历史、清空会话 |
 | `common/api/adapters.js` | 后端字段 → 页面现有视图字段；金额/时间/距离格式化 |
 
 ### 3.2 统一响应与错误
@@ -199,6 +200,7 @@ uni.showToast({ title: error.message || '请求失败', icon: 'none' })
 - 结算页试算（用券需要登录）、创建订单、支付
 - 订单列表/详情
 - 我的页、地址页、券包页
+- AI 点单页（会话与订单都归属当前登录用户）
 
 本地缓存键：
 
@@ -231,6 +233,7 @@ uni.showToast({ title: error.message || '请求失败', icon: 'none' })
 | 订单列表 `pages/order/index` | `GET /orders?state=` | — | `orders`、`order_items` |
 | 订单详情 `pages/order/order` | `GET /orders/{no}`、`GET /orders/{no}/pickup-qr`、`GET /payments/{no}`、`GET /menu/products/{id}`、`GET /menu/options` | `POST /orders/{no}/cancel`、`POST /orders/{no}/complete`、`POST /orders/{no}/review`、`POST /orders/{no}/repeat`、支付 | `orders`、`order_items`、`order_item_toppings`、`products`、`user_coupons`、`points_logs` |
 | 店员核销 `pages/staff/verify` | `POST /staff/pickup/lookup` | `POST /staff/pickup/complete` | `orders`（只改 `state` / `finish_time`） |
+| AI 点单 `pages/ai/index` | `GET /ai/history` | `POST /ai/chat` | `products`、`orders`、`order_items`、`order_item_toppings`、`idempotency_keys`（下单时）；会话只在后端内存 |
 | 我的 `pages/user` | `GET /users/me`、`GET /orders/counts`、`GET /member/profile` | `PATCH /users/me`、`POST /users/me/avatar`；退出登录只清本地 | `users`、`orders`、`user_coupons`、`points_logs` |
 | 榜单 `pages/rank` | `GET /menu/rank?period=week`、`GET /menu/lines` | — | `products`、`product_lines` |
 | 地址 `pages/address` | `GET /addresses` | `POST/PATCH/DELETE /addresses`、`PATCH /addresses/{id}/default` | `addresses` |
@@ -245,6 +248,7 @@ uni.showToast({ title: error.message || '请求失败', icon: 'none' })
 | 产品线标签颜色 | `GET /menu/lines` | `lineOf()` 按 `line_id` 查 |
 | 页脚门店标语 | 固定文案「今天的奶茶，由猫评分」 | 后端无此字段，不放接口 |
 | 轮播海报 | 本地 `static/resource/images/banner_*.jpg` | 营销素材，不走接口 |
+| AI 点单入口 | 无（页面跳转） | 白色大板内「AI 点单」行，`navigateTo('/pages/ai/index')` |
 
 失败策略：用户信息失败不影响菜单展示；推荐为空时显示原空区，不弹错误。
 
@@ -450,6 +454,7 @@ setCheckoutDraft({
   - 响应 `data.avatar` 是完整 URL，写回用户缓存和页面。
   - 后端支持 jpg/png/webp；文件落在 `fastapi_demo/static/avatars/`（已 gitignore）。
 - 「优惠券」入口进入券包页；「收货地址」入口进入地址页。
+- 功能列表新增「智能点单助手」入口，进入 `pages/ai/index`。
 
 ### 4.9 地址页 `pages/address/index.vue`（新增）
 
@@ -481,6 +486,20 @@ setCheckoutDraft({
 - 查询：`POST /staff/pickup/lookup`，命中后展示取餐码、订单号、取餐方式、桌号、商品明细与状态。
 - 核销：`POST /staff/pickup/complete`，成功后订单 `making → completed`，页面提示「核销成功」。已核销/已取消/未支付会返回 `4001`。
 - 演示边界：没有店员账号与角色权限，仅靠口令；生产应改为店员登录 + 门店权限。
+
+### 4.13 AI 点单 `pages/ai/index.vue`（新增）
+
+- 入口：首页「AI 点单」行、我的页「智能点单助手」；页面标题「智能点单助手」。
+- 进入页面先 `ensureLogin()`，再 `GET /ai/history` 恢复本次会话；没有历史时显示欢迎语「你好呀～想点什么奶茶，可以直接告诉我哦😊」。
+- 发送消息：`POST /ai/chat`，请求 `{ message, store_id, table_no }`；`store_id` 取当前选中门店，扫过桌码时改取桌码上下文里的 `storeId` 并带 `tableNo`；超时 60 秒。
+- 页面状态：
+  - 用户消息右对齐（焦糖棕底白字），AI 消息左对齐（白底深灰字 + 极淡阴影），系统提示居中灰色小字。
+  - AI 思考中显示三个跳动的焦糖棕圆点，不显示「加载中」。
+  - 失败时用户消息左侧出现红色感叹号，点击重发；同时显示「网络不佳，请检查网络」系统提示。
+  - 单条输入上限 500 字，空内容时发送按钮置灰。
+- 下单成功：响应 `data.order`（完整 `Order`）渲染订单卡片，展示「下单成功」、商品名、规格、数量、单号后 8 位、金额；点击卡片进入 `/pages/order/order?oid=<out_trade_no>`。
+- 会话历史保存在后端内存（按登录用户 + 2 小时），不写本地缓存；后端重启后清空。页面不解析 AI 回复，只渲染 `answer` 纯文本。
+- AI 只创建 `pending_pay` 订单，不会自动支付；用户仍需在订单详情完成支付。
 
 ---
 
@@ -548,7 +567,7 @@ setCheckoutDraft({
 | `4002` | 订单已支付，刷新详情 |
 | `4003` | 订单已取消，刷新详情 |
 | `6001` | 积分不足 |
-| `9000` | 服务内部错误，提示稍后重试 |
+| `9000` | 服务内部错误，提示稍后重试；AI 未配置或模型繁忙时 `/ai/chat` 也返回该码（503） |
 
 ---
 
@@ -573,6 +592,7 @@ setCheckoutDraft({
 | 改昵称 | `PATCH /users/me` | 写 `users.nickname` |
 | 积分兑换 | `POST /member/points/exchange` | `users.points` 减少、插 `points_logs`；券类兑换插 `user_coupons` |
 | 收藏 | `/users/me/favorites` | 写 `favorites` |
+| AI 对话 | `POST /ai/chat` | 只读 `products`、`orders`；下单时插入 `orders`、`order_items`、`order_item_toppings`、`idempotency_keys`；会话只在进程内存，不落库 |
 
 订单金额、券抵扣、库存、积分都不要在前端直接改数据库或在本地伪造。
 
@@ -765,3 +785,20 @@ curl -s "$BASE/orders?state=pending_pay" -H "Authorization: Bearer $TOKEN"
 | `common/utils/scan.js` | 扫普通码读 `res.result`；扫本店小程序码读 `res.path` 里的 `scene` 参数 |
 
 **限制**：`trial`/`develop` 生成的小程序码只有体验成员/开发者能扫开；对外营业需 `--env release` 且小程序已发布。手机访问后端仍需 HTTPS 域名或真机调试绕过域名校验。
+
+### 11.9 AI 点单助手（2026-10-28）
+
+**后端**：
+
+- `app/services/ai_agent/`：`state.py`（LangGraph 状态）、`prompt.py`（注入当前门店、菜单、库存、冰/糖选项与业务规则）、`tools.py`（`query_stock`、`create_order`、`query_my_orders`）、`graph.py`（LLM ↔ 工具 ReAct 循环）、`service.py`（按用户内存会话 + 并发锁）。
+- `app/api/v1/ai.py`：`POST /ai/chat`、`GET /ai/history`、`DELETE /ai/session`，全部要求 Bearer 登录；用户身份只用 token，不接收前端 `user_id`。
+- 下单复用 `order_service.create_order()`：固定自取、单款、金额/库存/门店校验全部走后端；订单进入 `pending_pay`，不自动支付。相同商品/规格/数量 30 秒内重复调用会返回原订单，防止模型重复下单。
+- 模型：DeepSeek Chat（OpenAI 兼容），`.env` 配 `DEEPSEEK_API_KEY`；可选 `LLM_BASE_URL`、`LLM_MODEL`。未配置时 `/ai/chat` 返回 9000/503。
+- 依赖：`langchain`、`langgraph`、`langchain-openai` 已写入 `requirements.txt`，安装在 `fastapi_demo/.venv`。
+
+**前端**：
+
+- `pages/ai/index.vue`：奶油底对话页，含气泡、加载圆点、失败重发、订单卡片、安全区输入栏；`common/api/ai.js` 封装接口，AI 请求超时 60 秒。
+- 入口：首页白色大板「AI 点单」行 + 我的页「智能点单助手」。
+- 已验证：真实 DeepSeek 对话（推荐/下单/订单进度）、库存售罄拦截、非法冰度拦截、未知商品拦截、多款匹配反问、会话历史与清空、SFC/JS 编译。
+- **尚未在微信开发者工具中人工点按验证**：聊天气泡滚动、键盘顶起、订单卡片跳转需在 HBuilderX / 微信开发者工具里再走一遍。

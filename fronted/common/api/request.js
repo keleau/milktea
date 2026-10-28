@@ -55,7 +55,7 @@ export function buildUrl(path, query) {
 }
 
 /** 原始请求，只负责拿到 HTTP 响应，不处理业务码 */
-function send({ url, method = 'GET', query, data, header = {}, auth = true }) {
+function send({ url, method = 'GET', query, data, header = {}, auth = true, timeout = REQUEST_TIMEOUT }) {
 	return new Promise((resolve, reject) => {
 		const token = auth ? getAccessToken() : ''
 		const finalHeader = { 'Content-Type': 'application/json', ...header }
@@ -65,7 +65,7 @@ function send({ url, method = 'GET', query, data, header = {}, auth = true }) {
 			method,
 			data,
 			header: finalHeader,
-			timeout: REQUEST_TIMEOUT,
+			timeout,
 			success: resolve,
 			fail: () => reject(new ApiError(-1, '网络请求失败，请检查后端是否启动', 0))
 		})
@@ -124,7 +124,7 @@ function refreshTokens() {
 
 /**
  * 业务请求
- * @param {{url: string, method?: string, query?: Object, data?: Object, header?: Object, auth?: boolean, retried?: boolean}} options
+ * @param {{url: string, method?: string, query?: Object, data?: Object, header?: Object, auth?: boolean, retried?: boolean, timeout?: number}} options
  * @returns {Promise<*>} 后端 data
  */
 export async function request(options) {

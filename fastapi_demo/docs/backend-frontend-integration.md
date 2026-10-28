@@ -17,7 +17,7 @@
 ```
 fastapi_demo/
 ├── main.py                     FastAPI 入口：CORS、异常、静态目录、路由挂载
-├── requirements.txt            fastapi / uvicorn / pydantic / SQLAlchemy / PyMySQL
+├── requirements.txt            fastapi / uvicorn / pydantic / SQLAlchemy / PyMySQL / LangChain
 ├── .env.example                环境变量示例（复制为 .env）
 ├── app/
 │   ├── core/
@@ -41,7 +41,8 @@ fastapi_demo/
 │   │   ├── member.py           /member/profile|points/*
 │   │   ├── addresses.py        /addresses CRUD
 │   │   ├── tables.py           /tables/resolve（桌码解析）
-│   │   └── staff.py            /staff/pickup/lookup|complete（店员核销）
+│   │   ├── staff.py            /staff/pickup/lookup|complete（店员核销）
+│   │   └── ai.py               /ai/chat|history|session（AI 点单）
 │   ├── tables.py               门店桌位配置 + scene 解析（生成脚本共用）
 │   └── services/
 │       ├── pricing.py          商品快照、券校验、打包费、试算
@@ -49,7 +50,8 @@ fastapi_demo/
 │       ├── pickup.py           取餐码定位、店员口令、核销状态校验
 │       ├── coupons.py          券状态刷新、发放、可用数量
 │       ├── member.py           等级、积分变更
-│       └── catalog.py          常点商品排序
+│       ├── catalog.py          常点商品排序
+│       └── ai_agent/           LangGraph ReAct：state/prompt/tools/graph/service
 ├── database/
 │   ├── schema_sqlite.sql
 │   ├── schema_mysql.sql
@@ -75,7 +77,7 @@ cd fastapi_demo
 # 首次（如果没有 database/milktea.db）
 python database/build_sqlite.py
 
-# 安装依赖（已装过可跳过；segno 仅生成桌码时需要）
+# 安装依赖（已装过可跳过；segno 仅生成桌码时需要，LangChain 仅 AI 点单需要）
 python -m pip install -r requirements.txt
 
 # 生成/刷新桌码（22 张 PNG + print.html + manifest.csv）
@@ -88,6 +90,7 @@ python -m uvicorn main:app --reload --host 127.0.0.1 --port 8000
 > 已有库升级到桌码版本时**不要重建**（会清空用户和订单），只补列：
 > `ALTER TABLE orders ADD COLUMN table_no TEXT;`（MySQL：`VARCHAR(8) NULL`）。
 > 核销口令在 `.env` 设置 `STAFF_PIN`（演示用 6 位数字）；未配置时核销接口返回 9000/503，修改后需重启服务。
+> AI 点单在 `.env` 设置 `DEEPSEEK_API_KEY`；未配置时 `/ai/chat` 返回 9000/503，修改后需重启服务。
 
 自检地址：
 
@@ -460,6 +463,37 @@ pending_pay ──支付回调──> making ──complete──> completed
 
 > 演示边界：核销无店员账号体系，只有共享口令；生产应增加店员登录、角色权限与操作审计，并把口令换成服务端会话。
 
+### 5.9 AI 点单 `pages/ai/index`
+
+| 前端动作 | 接口 | 后端行为 |
+|---|---|---|
+| 进入页面 | `GET /ai/history` | 按当前登录用户取内存会话消息；超过 2 小时或服务重启为空 |
+| 发送消息 | `POST /ai/chat` `{message, store_id, table_no?}` | LangGraph ReAct：LLM 节点 ↔ 工具节点循环，直到模型给出最终文本；返回 `{answer, order?}` |
+| 清空会话 | `DELETE /ai/session` | 删除该用户的内存会话（前端暂无按钮，接口保留） |
+
+**Agent 组成**（`app/services/ai_agent/`）：
+
+- `state.py`：`messages`（LangChain 消息，`add_messages` reducer）、`system_prompt`、`user_id`、`store_id`、`order_context`。
+- `prompt.py`：每次请求注入当前门店、营业状态、完整菜单（名称/价格/库存）、小料、冰度/糖度选项与业务规则；菜单来自数据库，不在提示词里写死。
+- `tools.py`：
+  - `query_stock(goods_name)`：精确/包含/相似度匹配商品；为空时返回有库存菜单；多匹配时让用户确认全名。
+  - `create_order(goods_name, ice, sugar, count, topping_names)`：校验商品、上架、库存、冰度、糖度、小料，复用 `order_service.create_order()`；固定自取、单款、无券，订单进入 `pending_pay`。
+  - `query_my_orders(limit)`：只查当前用户最近订单，用于客服式进度查询。
+- `graph.py`：`START → agent → (tools → agent)* → END`；`ToolNode` + `tools_condition`，`recursion_limit=10`。
+- `service.py`：按用户维护内存会话（最多 20 条、2 小时 TTL、每用户一把锁）；模型调用失败返回 9000/503；若工具已建单但最终回复失败，仍把订单卡片返回。
+- 模型：DeepSeek Chat，OpenAI 兼容接口；`DEEPSEEK_API_KEY` 只放后端 `.env`。可选 `LLM_BASE_URL`（默认 `https://api.deepseek.com/v1`）、`LLM_MODEL`（默认 `deepseek-chat`）。
+
+**下单约束**：
+
+- 用户身份只认 Bearer token，前端不能传 `user_id`；订单归属、金额、库存、门店状态全部后端校验。
+- 扫桌码进入时 `table_no` 会写入订单（复用 `create_order` 的桌号校验）；桌号不属于该门店返回 1004。
+- 冰度/糖度必须来自 `ICE_OPTIONS` / `SUGAR_OPTIONS`，用户未说明时模型必须反问。
+- 库存不足、售罄、门店打烊、商品下架、多款匹配、未知小料都会返回明确原因，不创建订单。
+- 相同用户 + 商品 + 规格 + 数量在 30 秒内重复调用 `create_order` 会返回原订单，避免模型重复建单。
+- AI 不自动支付；订单创建后仍是 `pending_pay`，由用户在订单详情页支付。
+
+> 演示边界：会话不落库，重启即清空；没有多轮摘要，超过 20 条只保留最近消息。生产应把会话、工具审计与限流放到 Redis / 数据库，并增加敏感词与越权防护。
+
 ---
 
 ## 6. 数据序列化规则
@@ -535,6 +569,9 @@ BASE_URL=http://127.0.0.1:8000
 # APP_SECRET=换成一个足够长的随机串
 # WECHAT_APPID=wx...      # 想用真实微信登录时填
 # WECHAT_SECRET=...       # 只放后端，不提交
+# DEEPSEEK_API_KEY=sk-... # AI 点单助手，只放后端
+# LLM_BASE_URL=https://api.deepseek.com/v1
+# LLM_MODEL=deepseek-chat
 ```
 
 4. 重启 uvicorn。日志无建表警告、`/api/v1/menu/products` 有数据即成功。
@@ -562,6 +599,8 @@ BASE_URL=http://127.0.0.1:8000
 | `points_logs` | 积分流水 |
 | `exchange_items` | 积分兑换项 |
 | `idempotency_keys` | 下单幂等键 |
+
+> AI 点单不新增表：会话保存在进程内存（按用户 2 小时），订单复用上面的 `orders` / `order_items` / `order_item_toppings` / `idempotency_keys` 结构。
 
 外键关系（简化）：
 
@@ -716,6 +755,10 @@ curl -s -X POST http://127.0.0.1:8000/api/v1/payments/wechat/notify \
 | 核销返回 9000/503 | 后端 `.env` 未设置 `STAFF_PIN`，或改后未重启 | 配置 `STAFF_PIN` 并重启后端 |
 | 核销返回 1003/403 | 店员口令输错 | 核对 `.env` 的 `STAFF_PIN` |
 | 核销返回 4001 | 订单未支付 / 已核销 / 已取消，或取餐码重复 | 让顾客打开订单详情出示二维码；刷新订单状态 |
+| AI 回复 9000/503 | `.env` 未设置 `DEEPSEEK_API_KEY`，或模型网络/余额异常 | 配置密钥并重启；看后端日志里的 `AI 对话调用失败` |
+| AI 不查库存直接回答 | 模型未按规则调用工具 | 检查系统提示词；换更稳定的模型；工具失败会返回原因供模型继续追问 |
+| AI 重复下单 | 模型在多个回合重复调用工具 | 后端 30 秒内相同商品/规格/数量会返回原订单；仍建议在订单列表核对 |
+| AI 历史消失 | 服务重启或超过 2 小时 | 演示预期行为；生产应持久化会话 |
 
 ---
 
@@ -730,6 +773,8 @@ curl -s -X POST http://127.0.0.1:8000/api/v1/payments/wechat/notify \
 - CORS `*` 仅方便联调；生产收紧到具体域名。
 - 上传头像只校验 MIME 与大小，演示够用；生产还应做图片重编码、病毒扫描、对象存储。
 - 订单超时取消、券锁定超时释放未实现定时任务；演示结束请手动取消未支付订单。
+- AI 点单只允许登录用户自取单款下单，工具层重新校验库存/门店/规格；但提示词无法完全阻止模型说错话，生产需增加输出审核、限流与工具调用审计。
+- `DEEPSEEK_API_KEY` 只放后端 `.env`，不要写进前端、文档、聊天或提交仓库。
 - 演示账号共享，适合单人/课堂演示；多人同时操作会互相影响订单与积分。
 
 ---
@@ -760,6 +805,9 @@ curl -s -X POST http://127.0.0.1:8000/api/v1/payments/wechat/notify \
 | POST | `/orders/{no}/cancel|complete|repeat|review` | 是 | 订单详情 |
 | POST | `/tables/resolve` | 否 | 首页、点单（扫码识别桌号） |
 | POST | `/staff/pickup/lookup|complete` | 否（店员口令） | 店员核销 |
+| POST | `/ai/chat` | 是 | AI 点单 |
+| GET | `/ai/history` | 是 | AI 点单（恢复会话） |
+| DELETE | `/ai/session` | 是 | AI 点单（清空会话） |
 | POST | `/payments/wechat/prepay` | 是 | 结算、订单详情 |
 | POST | `/payments/wechat/notify` | 否 | 演示支付 |
 | GET | `/payments/{no}` | 是 | 订单详情 |

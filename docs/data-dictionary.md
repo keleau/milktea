@@ -569,6 +569,7 @@ DATABASE_URL=mysql+pymysql://root:你的密码@127.0.0.1:3306/milktea?charset=ut
 - 图片字段存相对路径（如 `/static/images/drink_1.jpg`），接口输出时拼接 `BASE_URL`。
 - 订单中的商品、小料、收货地址均为下单时快照；删除地址后 `orders.address_id` 置 NULL，快照字段仍保留用于历史展示。
 - 写操作在请求内提交事务；库存扣减与订单支付使用 `SELECT ... FOR UPDATE`（MySQL 生效）。
+- AI 点单助手不新增数据表：对话按用户保存在进程内存（2 小时），下单仍写入 `orders` / `order_items` / `order_item_toppings` / `idempotency_keys`，结构调整与普通下单一致。
 
 ---
 

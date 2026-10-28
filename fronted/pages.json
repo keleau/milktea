@@ -78,6 +78,13 @@
 			}
 		},
 		{
+			"path": "pages/ai/index",
+			"style": {
+				"navigationBarTitleText": "智能点单助手",
+				"navigationBarBackgroundColor": "#FAF6F0"
+			}
+		},
+		{
 			"path": "pages/staff/verify",
 			"style": {
 				"navigationBarTitleText": "店员核销",
