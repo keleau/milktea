@@ -18,10 +18,10 @@
 |---|---|
 | 前端 | uni-app + Vue 3 + uni-ui，HBuilderX 工程 |
 | 后端 | FastAPI + SQLAlchemy 2 + Pydantic v2 + Uvicorn |
-| 数据库 | SQLite（默认）；提供 MySQL 建表脚本与 `DATABASE_URL` 切换配置，未做 MySQL 压测 |
+| 数据库 | SQLite（默认）/ MySQL 8（本机临时库 smoke 通过，未做压测） |
 | AI 点单 | LangGraph + LangChain，DeepSeek Chat（OpenAI 兼容接口） |
 | 微信能力 | `code2session` 登录、`chooseAvatar` + `type="nickname"` 头像昵称、`uni.scanCode`、`wxacode.getUnlimited` 小程序码、微信 `access_token` 进程内缓存 |
-| 测试 | pytest + FastAPI TestClient + 独立临时 SQLite 库 + 并发脚本 |
+| 测试 | pytest + FastAPI TestClient + 临时 SQLite + MySQL smoke + 并发脚本 |
 
 ## 目录结构
 
@@ -41,7 +41,7 @@ milktea/
 │  ├─ app/services/                 # 定价、订单、优惠券、核销、微信、ai_agent
 │  ├─ database/                     # SQLite/MySQL schema、种子库、桌码生成
 │  ├─ tests/                        # pytest：订单一致性、券/积分、API smoke/E2E
-│  ├─ scripts/                      # concurrency_check.py 可复现并发检查
+│  ├─ scripts/                      # concurrency_check.py / mysql_check.py
 │  ├─ docs/                         # 后端联调说明
 │  └─ static/                       # 商品图、桌码、头像
 └─ docs/                            # 数据字典
@@ -90,12 +90,15 @@ python -m uvicorn main:app --host 0.0.0.0 --port 8000
 | `DEEPSEEK_API_KEY` | AI 点单助手密钥；留空则 `/ai/chat` 返回 9000/503 |
 | `LLM_BASE_URL` / `LLM_MODEL` | 可选，默认 `https://api.deepseek.com/v1` / `deepseek-chat` |
 | `BASE_URL` | 后端对外地址，用于拼接图片绝对地址；默认 `http://127.0.0.1:8000` |
-| `DATABASE_URL` | 不填默认 SQLite；可切 MySQL |
+| `DATABASE_URL` | 不填默认 SQLite；填 `mysql+pymysql://...` 切 MySQL |
+| `USE_SQLITE` | 演示机没有 MySQL 时设为 `1`，强制 SQLite，优先级高于 `DATABASE_URL` |
 | `SQL_ECHO` | 设为 `1` 打印 SQL |
 | `ORDER_EXPIRY_MINUTES` | 待支付订单自动取消时间，默认 15 分钟 |
 | `AI_MIN_INTERVAL_SECONDS` | 同一用户 AI 请求最小间隔，默认 2 秒 |
 
 前端接口地址在 [`fronted/common/config.js`](fronted/common/config.js)：电脑调试保持 `http://127.0.0.1:8000`，真机改成电脑局域网 IP。
+
+**本机 MySQL / 演示机 SQLite：** 本机开发在 `.env` 配 `DATABASE_URL`；演示机没有 MySQL 时，在 `.env` 加 `USE_SQLITE=1`（或注释掉 `DATABASE_URL`）即可强制 SQLite，不需要改代码。启动日志会打印当前数据库（密码隐藏）。
 
 ## 测试与并发证据
 
@@ -108,11 +111,12 @@ cd fastapi_demo
 .venv\Scripts\python.exe -m pytest -q
 ```
 
-当前覆盖 16 个用例：
+当前覆盖 17 个用例：
 
 - 创建订单预占库存；同一幂等键重复提交返回同一订单
 - 两线程抢最后 1 件库存：仅 1 单成功，另 1 单返回 `2002`
 - 两线程同时取消同一订单：库存只回补一次
+- 已取消订单再次取消保持幂等，不会重复回补
 - 支付重复回调：库存/积分不重复处理
 - 制作中取消：回补库存、释放优惠券、退回积分
 - 超时取消：释放库存与优惠券
@@ -139,6 +143,29 @@ RESULT: PASS
 ```
 
 这就是简历里「最后 1 件库存仅 1 单成功、重复取消仅回补一次」的可复现证据。
+
+### MySQL 实库 smoke
+
+前提：`fastapi_demo/.env` 已配置 `mysql+pymysql://...` 的 `DATABASE_URL`。
+
+```bash
+cd fastapi_demo
+.venv\Scripts\python.exe scripts/mysql_check.py
+```
+
+脚本会创建临时库 `milktea_test_<时间戳>`、导入 `schema_mysql.sql`、跑 16 张表/库存/取消/券/积分检查，结束后删除临时库，不会改动现有 `milktea` 库。本机实测输出：
+
+```text
+[OK] MySQL 8.0.46，临时库 milktea_test_...
+[OK] schema_mysql.sql 导入完成
+[OK] 16 张表，12 款饮品，1 个用户
+[OK] 最后 1 件库存并发：成功 1 单，库存不足 1 单，库存 0
+[OK] 同一订单并发取消：取消成功 2 次，库存 0 -> 1
+[OK] 创建订单 / 支付 / 取消：库存、券、积分一致
+RESULT: PASS
+```
+
+> `schema_mysql.sql` 会 **DROP 并重建 16 张表**；已有业务数据的库先备份，不要直接在生产库执行。`scripts/mysql_check.py` 使用临时库，不会动现有 `milktea`。
 
 ## 演示流程
 
@@ -225,15 +252,16 @@ cd fastapi_demo
 - 登录 token 为 HMAC 签名，access / refresh 有固定有效期，未做服务端撤销/黑名单；演示够用，生产需补 jti/黑名单。
 - 库存是全门店共享的简化模型，不是每店独立库存；生产应拆 `store_products(store_id, product_id, stock)`。
 - 取餐码为 5 位随机码，极端情况下可能重复；扫码核销不受影响，手输重复码会提示改用扫码。
-- SQLite 适合演示与单机开发，不适合多进程高并发写；生产建议 MySQL，并补充分布式锁/压测/监控。
-- 管理后台、真实微信支付、每店库存、MySQL 迁移和线上部署未实现；这是演示项目，不要按生产系统宣传。
+- SQLite 适合演示与单机开发，不适合多进程高并发写；MySQL 已做临时库 smoke，但未做压测、多实例部署和监控。
+- 管理后台、真实微信支付、每店库存、MySQL 压测和线上部署未实现；这是演示项目，不要按生产系统宣传。
 
 ## Roadmap
 
 - [x] pytest 覆盖库存、幂等、取消、超时、券、积分、API smoke/E2E
 - [x] 可复现的并发检查脚本
+- [x] MySQL 8 临时库 smoke（16 表 + 库存/取消/券/积分）
 - [ ] GitHub Actions 自动跑测试
-- [ ] MySQL 实库回归与简单压测
+- [ ] MySQL 压测与多实例部署
 - [ ] Dockerfile + Nginx + 在线 H5 演示（可选）
 - [ ] 真实微信支付与对账（需商户资质）
 - [ ] 同桌并发下单、库存扣减与订单幂等压测

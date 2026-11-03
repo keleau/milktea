@@ -99,6 +99,19 @@ def test_double_cancel_restores_stock_once(session_factory):
     assert result["state"] == "cancelled"
 
 
+def test_cancel_is_idempotent(db):
+    product = db.get(Product, 1)
+    product.stock = 5
+    db.commit()
+
+    order = create_order(db, _user(db), _payload(), idempotency_key="cancel-idem-1")
+    cancel_order(db, _user(db), order.out_trade_no)
+    again = cancel_order(db, _user(db), order.out_trade_no)
+
+    assert again.state == "cancelled"
+    assert _stock(db, 1) == 5
+
+
 def test_pay_twice_awards_points_once(db):
     product = db.get(Product, 3)
     product.stock = 10

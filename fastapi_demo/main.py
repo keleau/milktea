@@ -38,6 +38,7 @@ def _expire_orders_loop() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    logger.info("数据库连接: %s", engine.url.render_as_string(hide_password=True))
     if not inspect(engine).has_table("users"):
         logger.warning(
             "数据库表不存在，请先执行 database/build_sqlite.py 或导入 database/schema_mysql.sql"

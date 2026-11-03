@@ -270,6 +270,8 @@ def create_order(
 
 def cancel_order(db: Session, user: User, out_trade_no: str) -> Order:
     order = get_owned_order(db, user, out_trade_no, for_update=True)
+    if order.state == "cancelled":
+        return order
     if order.state not in ("pending_pay", "making"):
         raise BizError(4001, "当前订单状态不可取消", 409)
     was_making = order.state == "making"

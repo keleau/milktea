@@ -21,12 +21,14 @@ def _load_env(path: Path) -> None:
 _load_env(BASE_DIR / ".env")
 
 _SQLITE_URL = f"sqlite:///{(BASE_DIR / 'database' / 'milktea.db').as_posix()}"
+_USE_SQLITE = os.getenv("USE_SQLITE", "").strip().lower() in {"1", "true", "yes", "on"}
+_ENV_DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
 
 
 class Settings:
     secret_key: str = os.getenv("APP_SECRET", "simaotea-demo-secret-change-me")
     base_url: str = os.getenv("BASE_URL", "http://127.0.0.1:8000").rstrip("/")
-    database_url: str = os.getenv("DATABASE_URL", _SQLITE_URL)
+    database_url: str = _SQLITE_URL if _USE_SQLITE or not _ENV_DATABASE_URL else _ENV_DATABASE_URL
     wechat_appid: str = os.getenv("WECHAT_APPID", "").strip()
     wechat_secret: str = os.getenv("WECHAT_SECRET", "").strip()
     staff_pin: str = os.getenv("STAFF_PIN", "").strip()

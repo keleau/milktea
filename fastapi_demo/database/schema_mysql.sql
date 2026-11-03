@@ -375,8 +375,9 @@ CREATE TABLE exchange_items (
         REFERENCES coupon_templates (id)
         ON UPDATE CASCADE ON DELETE RESTRICT,
     CONSTRAINT ck_exchange_cost CHECK (cost > 0),
-    CONSTRAINT ck_exchange_item_type CHECK (item_type IN ('coupon')),
-    CONSTRAINT ck_exchange_template CHECK (item_type <> 'coupon' OR template_id IS NOT NULL)
+    CONSTRAINT ck_exchange_item_type CHECK (item_type IN ('coupon'))
+    -- MySQL 8 不允许带 referential action 的外键列参与 CHECK；
+    -- “coupon 必须有 template_id”由种子数据/应用层保证，SQLite 也保持一致。
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '积分兑换商品';
 
 -- ------------------------------------------------------------

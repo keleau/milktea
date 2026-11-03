@@ -299,8 +299,9 @@ CREATE TABLE exchange_items (
     template_id INTEGER,
     sort_order  INTEGER NOT NULL DEFAULT 0,
     CONSTRAINT fk_exchange_template FOREIGN KEY (template_id) REFERENCES coupon_templates (id)
-        ON UPDATE CASCADE ON DELETE RESTRICT,
-    CONSTRAINT ck_exchange_template CHECK (item_type <> 'coupon' OR template_id IS NOT NULL)
+        ON UPDATE CASCADE ON DELETE RESTRICT
+    -- “coupon 必须有 template_id”由种子数据/应用层保证；
+    -- MySQL 8 不允许带 referential action 的外键列参与 CHECK，这里保持一致。
 );
 
 -- ------------------------------------------------------------

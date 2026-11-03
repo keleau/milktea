@@ -563,11 +563,13 @@ pending_pay ──支付回调──> making ──complete──> completed
 ### 7.2 切换 MySQL
 
 1. Navicat 连接本地 MySQL。
-2. 打开并运行 `database/schema_mysql.sql`（创建 `milktea` 库、16 张表、种子数据）。
+2. 打开并运行 `database/schema_mysql.sql`（创建 `milktea` 库、16 张表、种子数据）。注意：脚本会 **DROP 并重建表**，已有数据先备份。
 3. 复制 `.env.example` 为 `.env`（模板里的 `DATABASE_URL` 默认是注释状态，用 MySQL 时再取消注释）：
 
 ```ini
 DATABASE_URL=mysql+pymysql://root:你的密码@127.0.0.1:3306/milktea?charset=utf8mb4
+# 演示机没有 MySQL 时改成 USE_SQLITE=1（优先于 DATABASE_URL）
+# USE_SQLITE=1
 BASE_URL=http://127.0.0.1:8000
 # SQL_ECHO=1  # 需要看 SQL 时打开
 # APP_SECRET=换成一个足够长的随机串
@@ -582,7 +584,8 @@ BASE_URL=http://127.0.0.1:8000
 ```
 
 4. 重启 uvicorn。日志无建表警告、`/api/v1/menu/products` 有数据即成功。
-5. `.env` 已在 `.gitignore` 中，密码与 AppSecret 不会进仓库。
+5. 可跑 `python scripts/mysql_check.py`：临时库导入 16 表 + 库存/取消/券/积分 smoke，跑完自动删除临时库。
+6. `.env` 已在 `.gitignore` 中，密码与 AppSecret 不会进仓库。
 
 驱动：`PyMySQL[rsa]`；`caching_sha2_password` 需要 `cryptography`，requirements 已含 `PyMySQL[rsa]`。
 
