@@ -12,7 +12,7 @@
 			<view class="row2">
 				<paws :score="drink.paws"></paws>
 				<text class="paws-num">{{ drink.paws }} 爪认证</text>
-				<text class="sold">库存 {{ drink.stock }} 杯</text>
+				<text class="sold">{{ drink.stock > 0 ? '库存 ' + drink.stock + ' 杯' : '已售罄' }}</text>
 			</view>
 			<text class="d-desc">{{ drink.desc }}</text>
 		</view>
@@ -81,14 +81,16 @@
 			<view class="stepper">
 				<view class="st-btn" :class="{ dis: count <= 1 }" @tap="count > 1 && count--">−</view>
 				<text class="st-num">{{ count }}</text>
-				<view class="st-btn" @tap="count++">+</view>
+				<view class="st-btn" :class="{ dis: count >= maxCount }" @tap="count < maxCount && count++">+</view>
 			</view>
 			<view class="total">
 				<text class="t-label">合计</text>
 				<text class="t-sym">¥</text>
 				<text class="t-num">{{ total }}</text>
 			</view>
-			<view class="go-btn" hover-class="go-hv" @tap="toCheckout">选好了，去结算</view>
+			<view class="go-btn" :class="{ dis: isSoldOut }" hover-class="go-hv" @tap="toCheckout">
+				{{ isSoldOut ? '已售罄' : '选好了，去结算' }}
+			</view>
 		</view>
 	</view>
 	<view class="loading" v-else>{{ loadingText }}</view>
@@ -154,6 +156,8 @@ const total = computed(() => {
 	const tp = picked.value.reduce((s, t) => s + Number(t.price || 0), 0)
 	return Number(((drink.value.price + tp) * count.value).toFixed(2))
 })
+const maxCount = computed(() => Math.max(1, Number(drink.value?.stock || 0)))
+const isSoldOut = computed(() => !drink.value || Number(drink.value.stock) <= 0)
 
 const toggleTopping = (t) => {
 	const i = picked.value.findIndex(p => p.id === t.id)
@@ -162,6 +166,10 @@ const toggleTopping = (t) => {
 }
 
 const toCheckout = () => {
+	if (isSoldOut.value) {
+		uni.showToast({ title: '该饮品已售罄', icon: 'none' })
+		return
+	}
 	const table = getTableContext()
 	const useTable = table && table.tableNo
 	setCheckoutDraft({
@@ -386,6 +394,10 @@ page {
 	color: #ffffff;
 	font-size: 30rpx;
 	border-radius: 44rpx;
+}
+.go-btn.dis {
+	background: #d9d2c9;
+	color: #ffffff;
 }
 .go-hv {
 	background: #6f4a2f;

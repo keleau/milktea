@@ -25,70 +25,77 @@
 			"path": "pages/detail/index",
 			"style": {
 				"navigationBarTitleText": "饮品详情",
-				"navigationBarBackgroundColor": "#FFFFFF"
+				"navigationBarBackgroundColor": "#F4EDE3"
 			}
 		},
 		{
 			"path": "pages/checkout/index",
 			"style": {
 				"navigationBarTitleText": "确认订单",
-				"navigationBarBackgroundColor": "#FAF6F0"
+				"navigationBarBackgroundColor": "#F4EDE3"
 			}
 		},
 		{
 			"path": "pages/rank/index",
 			"style": {
 				"navigationBarTitleText": "本周猫榜",
-				"navigationBarBackgroundColor": "#FAF6F0"
+				"navigationBarBackgroundColor": "#F4EDE3"
 			}
 		},
 		{
 			"path": "pages/order/index",
 			"style": {
 				"navigationBarTitleText": "我的订单",
-				"navigationBarBackgroundColor": "#FAF6F0"
+				"navigationBarBackgroundColor": "#F4EDE3"
 			}
 		},
 		{
 			"path": "pages/order/order",
 			"style": {
 				"navigationBarTitleText": "订单详情",
-				"navigationBarBackgroundColor": "#FAF6F0"
+				"navigationBarBackgroundColor": "#F4EDE3"
 			}
 		},
 		{
 			"path": "pages/user/index",
 			"style": {
 				"navigationBarTitleText": "我的",
-				"navigationBarBackgroundColor": "#FAF6F0"
+				"navigationBarBackgroundColor": "#F4EDE3"
 			}
 		},
 		{
 			"path": "pages/coupon/index",
 			"style": {
 				"navigationBarTitleText": "我的优惠券",
-				"navigationBarBackgroundColor": "#FAF6F0"
+				"navigationBarBackgroundColor": "#F4EDE3"
 			}
 		},
 		{
 			"path": "pages/address/index",
 			"style": {
 				"navigationBarTitleText": "收货地址",
-				"navigationBarBackgroundColor": "#FAF6F0"
+				"navigationBarBackgroundColor": "#F4EDE3"
+			}
+		},
+		{
+			"path": "pages/ai/index",
+			"style": {
+				"navigationBarTitleText": "智能点单助手",
+				"navigationBarBackgroundColor": "#F4EDE3"
 			}
 		},
 		{
 			"path": "pages/staff/verify",
 			"style": {
 				"navigationBarTitleText": "店员核销",
-				"navigationBarBackgroundColor": "#FAF6F0"
+				"navigationBarBackgroundColor": "#F4EDE3"
 			}
 		}
 	],
 	"tabBar": {
-		"color": "#A79B8E",
-		"selectedColor": "#8B5E3C",
-		"backgroundColor": "#FFFFFF",
+		"color": "#9A8A7A",
+		"selectedColor": "#6F4B2E",
+		"backgroundColor": "#FFFCF7",
 		"borderStyle": "white",
 		"list": [
 			{
@@ -125,8 +132,8 @@
 	"globalStyle": {
 		"navigationBarTextStyle": "black",
 		"navigationBarTitleText": "四猫茶学园",
-		"navigationBarBackgroundColor": "#FAF6F0",
-		"backgroundColor": "#FAF6F0"
+		"navigationBarBackgroundColor": "#F4EDE3",
+		"backgroundColor": "#F4EDE3"
 	},
 	"uniIdRouter": {}
 }

@@ -14,8 +14,9 @@
 - **点单**：产品线/分类、冷热糖度、加料、门店切换、推荐与新客券
 - **扫码点单**：应用内扫普通二维码；也支持微信「扫一扫」小程序码直达点单页并自动绑定桌号
 - **结算**：自取/外送、优惠券、会员折扣、堂食桌号
-- **订单**：下单幂等、模拟支付、订单状态机、取餐码与取餐二维码
+- **订单**：下单幂等、创建时预占库存、待支付 15 分钟自动取消、模拟支付、订单状态机、取餐码与取餐二维码
 - **核销**：店员口令校验，扫码或手输取餐码完成核销
+- **AI 点单**：首页/点单页右下角悬浮猫娘入口，LangGraph ReAct 智能助手，自然语言查库存、推荐、下单、查订单进度；下单复用原有订单服务
 - **会员**：等级、积分、优惠券、常用地址与常点
 
 ## 技术栈
@@ -25,6 +26,7 @@
 | 前端 | uni-app + Vue 3 + uni-ui，HBuilderX 工程 |
 | 后端 | FastAPI + SQLAlchemy 2 + Pydantic v2 + Uvicorn |
 | 数据库 | SQLite（默认）/ MySQL（通过 `DATABASE_URL` 切换） |
+| AI 点单 | LangGraph + LangChain，DeepSeek Chat（OpenAI 兼容接口） |
 | 微信能力 | `code2session` 登录、`chooseAvatar` + `type="nickname"` 头像昵称组件、`wxacode.getUnlimited` 小程序码、access_token 进程内缓存 |
 
 ## 目录结构
@@ -32,13 +34,13 @@
 ```
 milktea/
 ├─ fronted/                      # uni-app 小程序
-│  ├─ pages/                     # 页面（首页/点单/详情/结算/订单/我的/核销）
+│  ├─ pages/                     # 页面（首页/点单/详情/结算/订单/我的/AI/核销）
 │  ├─ common/                    # API 封装、请求、状态、工具
 │  ├─ components/                # 业务组件
 │  └─ docs/                      # 接口清单与前后端联调说明
 ├─ fastapi_demo/                 # FastAPI 后端
-│  ├─ app/api/v1/                # 路由：auth/users/stores/menu/orders/...
-│  ├─ app/services/              # 业务：定价、订单、优惠券、核销、微信
+│  ├─ app/api/v1/                # 路由：auth/users/stores/menu/orders/ai/...
+│  ├─ app/services/              # 业务：定价、订单、优惠券、核销、微信、ai_agent
 │  ├─ database/                  # 建库脚本、桌码生成脚本、SQLite 文件
 │  └─ static/                    # 商品图、桌码、头像
 └─ docs/                         # 数据字典
@@ -77,6 +79,8 @@ python -m uvicorn main:app --host 0.0.0.0 --port 8000
 |---|---|
 | `WECHAT_APPID` / `WECHAT_SECRET` | 微信登录与小程序码生成；不填则使用模拟登录 |
 | `STAFF_PIN` | 店员核销口令；留空则核销接口不可用 |
+| `DEEPSEEK_API_KEY` | AI 点单助手密钥；留空则 `/ai/chat` 返回 9000/503 |
+| `LLM_BASE_URL` / `LLM_MODEL` | 可选，默认 `https://api.deepseek.com/v1` / `deepseek-chat` |
 | `BASE_URL` | 后端对外地址，用于拼接图片绝对地址；默认 `http://127.0.0.1:8000` |
 | `DATABASE_URL` | 不填默认 SQLite；可切 MySQL |
 | `SQL_ECHO` | 设为 `1` 打印 SQL |
@@ -91,6 +95,7 @@ python -m uvicorn main:app --host 0.0.0.0 --port 8000
 4. 结算页确认桌号/优惠 → 提交订单 → 模拟支付
 5. 订单页出示取餐码与取餐二维码
 6. 我的 → 店员核销 → 输入 `STAFF_PIN` → 扫码或手输取餐码 → 确认取餐
+7. 首页/点单页右下角点猫娘 → AI点单 → 说「少冰五分糖一杯黑糖波波厚奶茶」→ 查库存并生成订单卡片 → 查看订单并支付
 
 ### 模拟微信扫码进入
 
@@ -151,8 +156,9 @@ cd fastapi_demo
 - 未配置微信 AppID 时，微信登录使用设备 `mock_id` 生成稳定模拟账号
 - 头像上传后返回 `http://` 静态地址，微信基础库对 HTTP 图片有限制；当前用本地临时路径跨页预览（`milk_avatar_preview`），应用重启后可能失效，部署到 HTTPS 后恢复正常
 - 小程序码的 `trial`/`develop` 版本仅开发者与体验成员可打开
+- AI 会话保存在后端进程内存（2 小时），重启或超时后清空；AI 下单只支持单款自取，不会自动支付
 - access_token 缓存为进程内实现，多进程部署需替换为 Redis 等共享缓存
-- SQLite 适合演示与单机开发；生产环境建议 MySQL，并补齐迁移、并发与库存一致性设计
+- SQLite 适合演示与单机开发；生产建议 MySQL，并补充分布式锁/压测、监控与更完整的并发一致性设计
 
 ## Roadmap
 

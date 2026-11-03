@@ -1,4 +1,5 @@
 import logging
+import threading
 from contextlib import asynccontextmanager
 
 import uvicorn
@@ -13,11 +14,26 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.api.v1 import api_router
 from app.core.config import STATIC_DIR, settings
 from app.core.response import BizError, biz_error_handler
-from app.db import engine
+from app.db import SessionLocal, engine
+from app.services import orders as order_service
 
 logger = logging.getLogger("simaotea")
 STATIC_DIR.mkdir(parents=True, exist_ok=True)
 settings.avatar_dir.mkdir(parents=True, exist_ok=True)
+
+_expiry_stop = threading.Event()
+
+
+def _expire_orders_loop() -> None:
+    interval = max(5, settings.order_expiry_interval_seconds)
+    while not _expiry_stop.wait(interval):
+        try:
+            with SessionLocal() as db:
+                expired = order_service.expire_pending_orders(db)
+            if expired:
+                logger.info("已自动取消 %s 笔超时未支付订单", expired)
+        except Exception:
+            logger.exception("自动取消超时订单失败")
 
 
 @asynccontextmanager
@@ -26,7 +42,19 @@ async def lifespan(app: FastAPI):
         logger.warning(
             "数据库表不存在，请先执行 database/build_sqlite.py 或导入 database/schema_mysql.sql"
         )
+    expiry_thread = None
+    if settings.order_expiry_minutes > 0:
+        _expiry_stop.clear()
+        expiry_thread = threading.Thread(
+            target=_expire_orders_loop,
+            name="order-expiry",
+            daemon=True,
+        )
+        expiry_thread.start()
     yield
+    _expiry_stop.set()
+    if expiry_thread is not None:
+        expiry_thread.join(timeout=2)
     engine.dispose()
 
 

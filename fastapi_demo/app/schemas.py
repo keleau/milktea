@@ -379,3 +379,25 @@ class ExchangeData(BaseModel):
 class FavoriteOut(BaseModel):
     product_id: int
     favorited: bool
+
+
+class AiChatIn(BaseModel):
+    message: str = Field(min_length=1, max_length=500)
+    store_id: int | None = None
+    table_no: str | None = Field(default=None, max_length=8)
+
+
+class AiChatOut(BaseModel):
+    answer: str
+    order: OrderOut | None = None
+
+
+class AiMessageOut(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str
+    created_at: int
+    order: OrderOut | None = None
+
+
+class AiHistoryOut(BaseModel):
+    messages: list[AiMessageOut]

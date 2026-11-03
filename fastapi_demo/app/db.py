@@ -13,6 +13,7 @@ class Base(DeclarativeBase):
 _connect_args: dict = {}
 if settings.database_url.startswith("sqlite"):
     _connect_args["check_same_thread"] = False
+    _connect_args["timeout"] = 15
 
 engine = create_engine(
     settings.database_url,

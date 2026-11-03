@@ -1,0 +1,1504 @@
+/* 奶油纸本 · 焦糖印刷 — 全局主题层
+   只覆盖视觉：颜色、字体、表面、圆角、阴影、按钮与标签语法。
+   不改布局结构、图片位置、脚本和接口。 */
+
+page {
+	--cream-50: #fbf7f0;
+	--cream-100: #f4ede3;
+	--cream-200: #ece1d3;
+	--paper: #fffcf7;
+	--paper-soft: #faf3e8;
+	--ink: #2c211a;
+	--ink-2: #6e5d4e;
+	--ink-3: #9a8a7a;
+	--line: #e6d9c9;
+	--line-strong: #d8c7b4;
+	--brand: #6f4b2e;
+	--brand-deep: #53351f;
+	--accent: #b86a3b;
+	--accent-deep: #9f552d;
+	--accent-soft: #f3e2d2;
+	--gold: #b79a6b;
+	--green: #5d765b;
+	--rose: #b06a68;
+	--danger: #a64b3c;
+	--radius-card: 24rpx;
+	--radius-sm: 12rpx;
+	--shadow-card: 0 10rpx 28rpx rgba(63, 42, 26, 0.055);
+	--serif: "Songti SC", "Noto Serif SC", "STSong", "SimSun", Georgia, serif;
+	background-color: var(--cream-100) !important;
+	background-image: radial-gradient(120% 62% at 100% 0%, rgba(184, 106, 59, 0.055), transparent 62%);
+	color: var(--ink) !important;
+	font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+}
+
+page .page {
+	background: transparent !important;
+}
+
+/* ---------- 字体角色 ---------- */
+page .brand-name,
+page .sl-title,
+page .sec-title,
+page .head-title,
+page .p-title,
+page .du-title,
+page .d-name,
+page .bn-title,
+page .rate-title,
+page .name-title,
+page .mc-name,
+page .oc-name,
+page .rec-name,
+page .rk-name,
+page .new-name {
+	font-family: var(--serif);
+	font-weight: 600;
+	letter-spacing: 0.01em;
+	color: var(--ink) !important;
+}
+
+page .big-num,
+page .t-num,
+page .cc-cut,
+page .cb-num,
+page .od-price,
+page .rk-price,
+page .new-price,
+page .oc-total,
+page .cp-num,
+page .mc-num,
+page .pc-num,
+page .res-code,
+page .price-num,
+page .p-num {
+	font-family: var(--serif);
+	font-variant-numeric: tabular-nums;
+	letter-spacing: -0.02em;
+	color: var(--accent-deep) !important;
+}
+
+page .du-en,
+page .brand-en,
+page .sl-kicker,
+page .pb-tag,
+page .stb-t1,
+page .g-badge,
+page .p-tag,
+page .line-tag,
+page .rk-badge,
+page .oc-tag {
+	letter-spacing: 0.08em;
+}
+
+/* ---------- 辅助文字 ---------- */
+page .scan-sub,
+page .rec-desc,
+page .du-sub,
+page .mb-key,
+page .mb-unit,
+page .st-meta,
+page .st-dist-t,
+page .st-dot,
+page .st-status,
+page .st-live-t,
+page .cp-h-s,
+page .sec-desc,
+page .no-drink,
+page .sl-sub,
+page .footer-slogan,
+page .brand-desc,
+page .tip-line,
+page .footer,
+page .p-more,
+page .od-no,
+page .od-spec,
+page .od-count,
+page .sum-line,
+page .mi-sub,
+page .cc-min,
+page .no-coupon,
+page .cpn-s,
+page .cpn-spec,
+page .ss-area,
+page .sp-desc,
+page .sp-gsub,
+page .sp-sum,
+page .sold,
+page .pl-score,
+page .ri-spec,
+page .qr-tip,
+page .pc-label,
+page .addr-text,
+page .empty-sub,
+page .loading,
+page .oc-spec,
+page .oc-no,
+page .system-line,
+page .cell-extra,
+page .ms-label,
+page .stb-t2,
+page .ac-tip,
+page .tip,
+page .mc-expire,
+page .mc-desc,
+page .mc-min,
+page .cp-min,
+page .rk-desc,
+page .res-item,
+page .done-tip,
+page .pin-tip,
+page .qr-tip {
+	color: var(--ink-2) !important;
+}
+
+/* ---------- 表面与卡片 ---------- */
+page .sheet,
+page .panel,
+page .rec-card,
+page .od-card,
+page .addr-card,
+page .my-card,
+page .name-card,
+page .rate-card,
+page .form-card,
+page .cart-panel,
+page .ai-bubble,
+page .order-card {
+	background: var(--paper) !important;
+	border: 1rpx solid var(--line) !important;
+	border-radius: var(--radius-card) !important;
+	box-shadow: var(--shadow-card) !important;
+}
+
+page .sheet {
+	border-radius: 28rpx !important;
+}
+
+page .spec-sheet,
+page .store-sheet {
+	background: var(--paper) !important;
+	border: 1rpx solid var(--line) !important;
+	border-radius: 28rpx 28rpx 0 0 !important;
+	box-shadow: 0 -16rpx 48rpx rgba(63, 42, 26, 0.12) !important;
+}
+
+page .mask,
+page .form-mask,
+page .name-mask,
+page .rate-mask {
+	background: rgba(43, 31, 22, 0.44) !important;
+}
+
+/* ---------- 按钮语法 ---------- */
+page .go-btn,
+page .send-btn,
+page .btn-primary,
+page .add-btn,
+page .f-submit,
+page .pin-save,
+page .code-btn,
+page .done-btn,
+page .empty-btn,
+page .n-submit,
+page .rate-submit,
+page .scan-btn {
+	background-color: var(--brand) !important;
+	background-image: none !important;
+	color: #fff8ef !important;
+	box-shadow: 0 8rpx 18rpx rgba(83, 53, 31, 0.15) !important;
+	border: none !important;
+	border-radius: 12rpx !important;
+	font-weight: 600 !important;
+	letter-spacing: 0.02em;
+}
+
+page .pb-btn,
+page .act-btn,
+page .sp-addcart {
+	background-color: var(--accent-deep) !important;
+	background-image: none !important;
+	color: #fff8ef !important;
+	box-shadow: 0 8rpx 18rpx rgba(159, 85, 45, 0.15) !important;
+	border: none !important;
+	border-radius: 12rpx !important;
+	font-weight: 600 !important;
+}
+
+page .p-buy {
+	background: transparent !important;
+	background-image: none !important;
+	border: 1rpx solid var(--line-strong) !important;
+	border-radius: 12rpx !important;
+	color: var(--brand) !important;
+	box-shadow: none !important;
+}
+
+page .ghost-btn,
+page .btn-demo,
+page .sp-buy,
+page .f-cancel,
+page .n-cancel,
+page .rate-cancel,
+page .ac-act {
+	background: transparent !important;
+	background-image: none !important;
+	border: 1rpx solid var(--line-strong) !important;
+	border-radius: 12rpx !important;
+	color: var(--brand) !important;
+	box-shadow: none !important;
+}
+
+page .go-btn.dis,
+page .send-off,
+page .empty-btn.dis {
+	background-color: #e4dbcf !important;
+	color: #9a8a7a !important;
+	box-shadow: none !important;
+}
+
+page .p-buy.dis {
+	background: transparent !important;
+	border-color: var(--line) !important;
+	color: var(--ink-3) !important;
+	box-shadow: none !important;
+}
+
+page .cp-btn.claimed {
+	background: var(--cream-200) !important;
+	color: var(--ink-2) !important;
+	box-shadow: none !important;
+}
+
+page .btn-hv,
+page .go-hv,
+page .send-hv,
+page .hv {
+	opacity: 0.86 !important;
+}
+
+/* ---------- 标签 / 胶囊 ---------- */
+page .tb-tag,
+page .ti-tag,
+page .oc-tag,
+page .og-badge,
+page .cb-badge,
+page .g-badge,
+page .sb-badge {
+	background: var(--accent-deep) !important;
+	color: #fff8ef !important;
+	box-shadow: none !important;
+	border-radius: 6rpx !important;
+}
+
+page .stb-t1,
+page .stb-t2 {
+	color: var(--brand) !important;
+}
+
+page .st-badge {
+	background: var(--accent-soft) !important;
+	border: 1rpx solid rgba(184, 106, 59, 0.18) !important;
+	border-radius: 12rpx 12rpx 12rpx 2rpx !important;
+}
+
+page .p-tag,
+page .line-tag,
+page .rk-badge {
+	border-radius: 6rpx !important;
+	box-shadow: none !important;
+}
+
+/* ---------- 输入 ---------- */
+page .composer-input,
+page .name-input,
+page .f-input,
+page .pin-input,
+page .code-input,
+page .rate-input,
+page .ps-input {
+	background: var(--paper-soft) !important;
+	border: 1rpx solid var(--line) !important;
+	border-radius: 12rpx !important;
+	color: var(--ink) !important;
+	box-shadow: none !important;
+}
+
+page .input-ph,
+page .ps-ph {
+	color: var(--ink-3) !important;
+}
+
+/* ---------- 手势 / 页签 ---------- */
+page .mode-t,
+page .mt-t,
+page .tab-item,
+page .tab,
+page .sb-t,
+page .seg-t,
+page .opt-chip,
+page .sp-chip {
+	color: var(--ink-2) !important;
+}
+
+page .mode-t.on,
+page .mt-tab.on .mt-t,
+page .tab-item.on,
+page .tab.on,
+page .sb-item.on .sb-t,
+page .seg-item.on .seg-t {
+	color: var(--ink) !important;
+	font-weight: 600 !important;
+}
+
+page .mt-bar,
+page .tab-item.on::after,
+page .sb-ind {
+	background: var(--accent) !important;
+}
+
+page .seg-item.on {
+	background: var(--brand) !important;
+	box-shadow: none !important;
+}
+
+page .seg-item.on .seg-s {
+	color: rgba(255, 248, 239, 0.72) !important;
+}
+
+page .opt-chip,
+page .sp-chip {
+	background: var(--paper-soft) !important;
+	border: 1rpx solid var(--line) !important;
+	border-radius: 12rpx !important;
+}
+
+page .opt-chip.on,
+page .sp-chip.on {
+	background: var(--brand) !important;
+	border-color: var(--brand) !important;
+	color: #fff8ef !important;
+}
+
+page .opt-chip.multi.on {
+	background: var(--accent-soft) !important;
+	border-color: rgba(184, 106, 59, 0.3) !important;
+	color: var(--accent-deep) !important;
+}
+
+/* ---------- 登录页 ---------- */
+page .login-page {
+	background: transparent !important;
+}
+
+page .glow {
+	display: none !important;
+}
+
+page .logo {
+	border-radius: 28rpx !important;
+	box-shadow: 0 16rpx 36rpx rgba(63, 42, 26, 0.14) !important;
+}
+
+page .brand-name {
+	font-size: 54rpx !important;
+}
+
+page .brand-en {
+	color: var(--accent-deep) !important;
+}
+
+page .brand-desc {
+	color: var(--ink-2) !important;
+}
+
+page .btn {
+	border-radius: 14rpx !important;
+	box-shadow: none !important;
+	font-weight: 600 !important;
+}
+
+page .btn-primary {
+	background: var(--brand) !important;
+}
+
+page .btn-demo {
+	background: transparent !important;
+	border: 1rpx solid var(--line-strong) !important;
+	color: var(--brand) !important;
+}
+
+page .tip-line,
+page .footer {
+	color: var(--ink-3) !important;
+}
+
+/* ---------- 首页 ---------- */
+page .sl-kicker {
+	background: rgba(255, 252, 247, 0.72) !important;
+	color: var(--ink) !important;
+	border: 1rpx solid rgba(255, 252, 247, 0.55) !important;
+	box-shadow: none !important;
+}
+
+page .t-dark .sl-kicker {
+	background: rgba(44, 33, 26, 0.52) !important;
+	color: #fff8ef !important;
+	border-color: rgba(255, 248, 239, 0.24) !important;
+}
+
+page .sl-title {
+	font-size: 62rpx !important;
+	line-height: 1.18 !important;
+}
+
+page .cta-btn {
+	background: var(--brand) !important;
+	background-image: none !important;
+	color: #fff8ef !important;
+	box-shadow: 0 8rpx 20rpx rgba(63, 42, 26, 0.16) !important;
+	border-radius: 999rpx !important;
+}
+
+page .t-dark .cta-btn {
+	background: #f0e1cd !important;
+	color: #4a2f1f !important;
+}
+
+page .t-fresh .cta-btn {
+	background: var(--green) !important;
+	color: #fff8ef !important;
+}
+
+page .sheet {
+	background: var(--paper) !important;
+}
+
+page .member-row {
+	border-bottom: 1rpx solid var(--line) !important;
+}
+
+page .mb-badge {
+	background: var(--brand) !important;
+	color: #fff8ef !important;
+	border-radius: 8rpx 8rpx 8rpx 2rpx !important;
+}
+
+page .mb-level {
+	color: var(--ink) !important;
+	font-weight: 600 !important;
+}
+
+page .mb-val {
+	font-family: var(--serif);
+	color: var(--ink) !important;
+}
+
+page .mb-key,
+page .mb-unit {
+	color: var(--ink-2) !important;
+}
+
+page .mb-sep,
+page .du-divider {
+	background: var(--line) !important;
+}
+
+page .du-en {
+	color: #c7b7a5 !important;
+}
+
+page .du-title {
+	font-size: 54rpx !important;
+	line-height: 1.15 !important;
+}
+
+page .du-sub {
+	color: var(--ink-2) !important;
+}
+
+page .scan-row {
+	background: var(--paper-soft) !important;
+	border: 1rpx solid var(--line) !important;
+	border-radius: 18rpx !important;
+	box-shadow: none !important;
+}
+
+page .scan-icon {
+	background: var(--paper) !important;
+	border: 1rpx solid var(--line) !important;
+	box-shadow: none !important;
+}
+
+page .scan-title {
+	color: var(--ink) !important;
+	font-weight: 600 !important;
+}
+
+page .scan-sub {
+	color: var(--ink-2) !important;
+}
+
+page .g-item {
+	color: var(--ink-2) !important;
+}
+
+page .g-hot {
+	background: var(--accent-deep) !important;
+	box-shadow: none !important;
+}
+
+page .act-banner {
+	background: var(--brand) !important;
+	background-image: none !important;
+	border: 1rpx solid rgba(255, 248, 239, 0.12) !important;
+	border-radius: 20rpx !important;
+	box-shadow: none !important;
+}
+
+page .act-t1,
+page .act-t2 {
+	color: #fff8ef !important;
+}
+
+page .act-t2 {
+	opacity: 0.68;
+}
+
+page .act-btn {
+	background: var(--accent-deep) !important;
+	color: #fff8ef !important;
+	border-radius: 999rpx !important;
+}
+
+page .sec-title {
+	font-size: 34rpx !important;
+}
+
+page .sec-more {
+	color: var(--ink-2) !important;
+}
+
+page .rec-card {
+	border-radius: 20rpx !important;
+}
+
+page .rec-img {
+	border-radius: 14rpx !important;
+}
+
+page .rec-name {
+	color: var(--ink) !important;
+	font-weight: 600 !important;
+}
+
+page .rec-btn {
+	background: transparent !important;
+	border: 1rpx solid var(--line-strong) !important;
+	color: var(--brand) !important;
+	border-radius: 999rpx !important;
+	box-shadow: none !important;
+}
+
+page .price-sym,
+page .price-num {
+	color: var(--accent) !important;
+}
+
+page .footer-slogan {
+	color: var(--ink-3) !important;
+	letter-spacing: 0.06em;
+}
+
+/* ---------- 点单页 ---------- */
+page .topbar {
+	background: var(--cream-100) !important;
+	border-bottom: 1rpx solid var(--line) !important;
+}
+
+page .mode-div {
+	background: var(--line) !important;
+}
+
+page .tb-scan,
+page .tb-search {
+	background: var(--paper) !important;
+	border: 1rpx solid var(--line) !important;
+	box-shadow: none !important;
+}
+
+page .tb-scan-t {
+	color: var(--brand) !important;
+}
+
+page .st-title {
+	color: var(--ink) !important;
+	font-weight: 600 !important;
+}
+
+page .st-live {
+	background: rgba(93, 118, 91, 0.09) !important;
+	color: var(--green) !important;
+}
+
+page .st-live-dot {
+	background: var(--green) !important;
+}
+
+page .table-bar {
+	background: var(--paper) !important;
+	border: 1rpx solid var(--line) !important;
+	box-shadow: none !important;
+}
+
+page .tb-tag {
+	background: var(--accent-deep) !important;
+}
+
+page .tbb-no {
+	color: var(--ink) !important;
+	font-family: var(--serif);
+}
+
+page .tbb-clear {
+	background: var(--accent-soft) !important;
+	color: var(--accent-deep) !important;
+	border: 1rpx solid rgba(184, 106, 59, 0.2) !important;
+}
+
+page .promo-banner {
+	background: var(--brand) !important;
+	background-image: none !important;
+	border: 1rpx solid rgba(255, 248, 239, 0.1) !important;
+	border-radius: 20rpx !important;
+	box-shadow: none !important;
+}
+
+page .pb-deco {
+	opacity: 0.18 !important;
+}
+
+page .pb-tag {
+	background: rgba(255, 248, 239, 0.14) !important;
+	color: #fff8ef !important;
+	border: 1rpx solid rgba(255, 248, 239, 0.18) !important;
+}
+
+page .pb-big,
+page .pb-sub2 {
+	color: #fff8ef !important;
+}
+
+page .pb-btn {
+	background: var(--accent-deep) !important;
+	color: #fff8ef !important;
+}
+
+page .cp-h-t {
+	color: var(--ink) !important;
+	font-weight: 600 !important;
+}
+
+page .mtabs {
+	background: var(--cream-100) !important;
+	border-bottom: 1rpx solid var(--line) !important;
+}
+
+page .content {
+	border-top: 1rpx solid var(--line) !important;
+}
+
+page .sec-name {
+	font-family: var(--serif);
+	font-weight: 600 !important;
+}
+
+page .cart-wrap {
+	background: linear-gradient(180deg, rgba(244, 237, 227, 0), rgba(244, 237, 227, 0.95) 42%, var(--cream-100) 100%) !important;
+}
+
+page .cart-bar {
+	background: #34261b !important;
+	border-radius: 20rpx !important;
+	box-shadow: 0 12rpx 30rpx rgba(52, 38, 27, 0.1) !important;
+}
+
+page .cb-go {
+	background: #f2e4d2 !important;
+	color: #3f2b1d !important;
+	border-radius: 10rpx !important;
+	font-weight: 600 !important;
+}
+
+page .cart-panel {
+	border-radius: 24rpx !important;
+}
+
+page .cpn-img {
+	border-radius: 12rpx !important;
+}
+
+page .cpn-price {
+	color: var(--accent-deep) !important;
+	font-family: var(--serif);
+}
+
+page .cpn-del {
+	border: 1rpx solid var(--line) !important;
+	color: var(--ink-2) !important;
+}
+
+page .sp-hero {
+	border-radius: 22rpx 22rpx 0 0 !important;
+}
+
+page .sp-name {
+	font-family: var(--serif);
+	font-size: 34rpx !important;
+}
+
+page .sp-close {
+	background: rgba(44, 33, 26, 0.55) !important;
+}
+
+page .sp-foot {
+	border-top: 1rpx solid var(--line) !important;
+	background: var(--paper) !important;
+}
+
+page .sp-buy {
+	border-color: var(--line-strong) !important;
+	color: var(--brand) !important;
+}
+
+page .sp-addcart {
+	background: var(--brand) !important;
+}
+
+page .ss-title {
+	font-family: var(--serif);
+	color: var(--ink) !important;
+}
+
+page .ss-map {
+	background: var(--paper-soft) !important;
+	border: 1rpx solid var(--line) !important;
+}
+
+page .ss-item {
+	border-bottom: 1rpx solid var(--line) !important;
+}
+
+page .ss-name {
+	color: var(--ink) !important;
+}
+
+page .ss-radio.on {
+	border-color: var(--accent) !important;
+	background: var(--accent) !important;
+}
+
+/* ---------- 详情页 ---------- */
+page .hero {
+	background: var(--paper-soft) !important;
+}
+
+page .info-card {
+	background: var(--paper) !important;
+	border: 1rpx solid var(--line) !important;
+	border-radius: 24rpx !important;
+	box-shadow: var(--shadow-card) !important;
+}
+
+page .line-tag {
+	border-radius: 6rpx !important;
+}
+
+page .paws-num {
+	color: var(--gold) !important;
+}
+
+page .sold {
+	color: var(--ink-3) !important;
+}
+
+page .p-line {
+	border-top: 1rpx solid var(--line) !important;
+}
+
+page .pl-name {
+	color: var(--ink) !important;
+}
+
+page .pl-score {
+	color: var(--ink-2) !important;
+}
+
+page .fix-bar {
+	background: var(--paper) !important;
+	border-top: 1rpx solid var(--line) !important;
+	box-shadow: 0 -10rpx 28rpx rgba(63, 42, 26, 0.05) !important;
+}
+
+page .st-btn {
+	border-color: var(--line-strong) !important;
+	color: var(--brand) !important;
+}
+
+page .go-btn.dis {
+	background: #ddd2c5 !important;
+}
+
+/* ---------- 结算页 ---------- */
+page .mode-seg {
+	background: var(--cream-200) !important;
+}
+
+page .seg-item {
+	border-radius: 14rpx !important;
+}
+
+page .seg-s {
+	color: var(--ink-3) !important;
+}
+
+page .mode-info {
+	border-top: 1rpx solid var(--line) !important;
+}
+
+page .mi-main {
+	color: var(--ink) !important;
+	font-weight: 600 !important;
+}
+
+page .ti-tag {
+	background: var(--accent-deep) !important;
+}
+
+page .ti-no {
+	color: var(--ink) !important;
+	font-family: var(--serif);
+}
+
+page .od-img {
+	border-radius: 14rpx !important;
+}
+
+page .od-name {
+	color: var(--ink) !important;
+	font-weight: 600 !important;
+}
+
+page .coupon-chip {
+	background: var(--paper-soft) !important;
+	border: 1rpx solid var(--line) !important;
+	border-radius: 16rpx !important;
+}
+
+page .coupon-chip.on {
+	background: var(--paper) !important;
+	border-color: var(--accent) !important;
+}
+
+page .cc-cut {
+	color: var(--accent-deep) !important;
+}
+
+page .cc-title {
+	color: var(--ink) !important;
+}
+
+page .sum-line {
+	color: var(--ink-2) !important;
+}
+
+page .sum-line .cut {
+	color: var(--accent) !important;
+}
+
+page .sum-total {
+	border-top: 1rpx solid var(--line) !important;
+	color: var(--ink) !important;
+}
+
+page .t-sym,
+page .t-num {
+	color: var(--accent) !important;
+}
+
+/* ---------- 订单列表 / 详情 ---------- */
+page .tabs {
+	background: var(--cream-100) !important;
+}
+
+page .tab-inner {
+	border-bottom: 1rpx solid var(--line) !important;
+}
+
+page .tab-item.on::after {
+	background: var(--accent) !important;
+}
+
+page .od-card {
+	border-radius: 20rpx !important;
+}
+
+page .od-head {
+	border-bottom: 1rpx solid var(--line) !important;
+}
+
+page .od-img {
+	border-radius: 14rpx !important;
+}
+
+page .od-name {
+	color: var(--ink) !important;
+	font-weight: 600 !important;
+}
+
+page .od-state {
+	font-weight: 600 !important;
+}
+
+page .st-warn {
+	color: var(--accent-deep) !important;
+}
+
+page .st-make {
+	color: var(--brand) !important;
+}
+
+page .st-done {
+	color: var(--green) !important;
+}
+
+page .st-cancel {
+	color: var(--ink-3) !important;
+}
+
+page .od-pay {
+	background: var(--brand) !important;
+	color: #fff8ef !important;
+	border-radius: 12rpx !important;
+	box-shadow: none !important;
+}
+
+page .ep-pad,
+page .ep-toe {
+	background-color: var(--gold) !important;
+}
+
+page .empty-text {
+	color: var(--ink-2) !important;
+}
+
+page .banner {
+	background: var(--brand) !important;
+	background-image: none !important;
+}
+
+page .bn-warn,
+page .bn-make {
+	background: var(--brand) !important;
+}
+
+page .bn-done {
+	background: #4f624d !important;
+}
+
+page .bn-cancel {
+	background: #6d5a4a !important;
+}
+
+page .bn-title,
+page .bn-sub {
+	color: #fff8ef !important;
+}
+
+page .bn-sub {
+	opacity: 0.72;
+}
+
+page .pick-code {
+	background: rgba(255, 248, 239, 0.1) !important;
+	border: 1rpx solid rgba(255, 248, 239, 0.18) !important;
+}
+
+page .pc-num {
+	color: #fff8ef !important;
+}
+
+page .qr-panel {
+	background: var(--paper) !important;
+}
+
+page .qr-img {
+	border-radius: 14rpx !important;
+	background: var(--paper-soft) !important;
+}
+
+page .od-item:last-child {
+	border-bottom: none !important;
+}
+
+page .sum-line .strong {
+	color: var(--ink) !important;
+	font-weight: 600 !important;
+}
+
+page .rate-card {
+	border-radius: 24rpx !important;
+}
+
+page .rate-star {
+	color: var(--line-strong) !important;
+}
+
+page .rate-star.on {
+	color: var(--gold) !important;
+}
+
+/* ---------- 我的 ---------- */
+page .member-card {
+	background: linear-gradient(145deg, #5d3f2a 0%, #463022 100%) !important;
+	border: 1rpx solid rgba(255, 248, 239, 0.1) !important;
+	border-radius: 24rpx !important;
+	box-shadow: 0 16rpx 36rpx rgba(63, 42, 26, 0.16) !important;
+}
+
+page .avatar {
+	border-color: rgba(255, 248, 239, 0.55) !important;
+}
+
+page .avatar-cam {
+	background: var(--accent) !important;
+}
+
+page .mc-name {
+	color: #fff8ef !important;
+	font-size: 38rpx !important;
+}
+
+page .mc-edit {
+	border-color: rgba(255, 248, 239, 0.35) !important;
+	color: #fff8ef !important;
+}
+
+page .mc-level {
+	background: rgba(255, 248, 239, 0.1) !important;
+	border: 1rpx solid rgba(255, 248, 239, 0.14) !important;
+	border-radius: 8rpx !important;
+}
+
+page .mcl-badge,
+page .mcl-text {
+	color: #f4e8d8 !important;
+}
+
+page .mc-stats {
+	background: transparent !important;
+	border-top: 1rpx solid rgba(255, 248, 239, 0.14) !important;
+	border-radius: 0 !important;
+	padding-top: 26rpx !important;
+}
+
+page .ms-num {
+	color: #fff8ef !important;
+	font-family: var(--serif);
+	font-size: 38rpx !important;
+}
+
+page .ms-label {
+	color: rgba(255, 248, 239, 0.62) !important;
+}
+
+page .panel {
+	margin-top: 22rpx !important;
+}
+
+page .p-more {
+	color: var(--ink-2) !important;
+}
+
+page .og-icon {
+	background: var(--paper-soft) !important;
+	border: 1rpx solid var(--line) !important;
+	color: var(--brand) !important;
+}
+
+page .og-badge {
+	background: var(--accent) !important;
+}
+
+page .og-text {
+	color: var(--ink-2) !important;
+}
+
+page .cell {
+	border-bottom: 1rpx solid var(--line) !important;
+}
+
+page .cell-name {
+	color: var(--ink) !important;
+}
+
+page .cell-extra,
+page .cell-arrow {
+	color: var(--ink-2) !important;
+}
+
+page .cell-danger {
+	color: var(--danger) !important;
+}
+
+page .name-actions {
+	border-top: 1rpx solid var(--line) !important;
+}
+
+/* ---------- 券包 / 地址 / 榜单 / 核销 ---------- */
+page .tabs {
+	border-bottom: 1rpx solid var(--line) !important;
+}
+
+page .tab.on {
+	color: var(--ink) !important;
+}
+
+page .my-card {
+	border-radius: 20rpx !important;
+}
+
+page .my-card.dim {
+	opacity: 0.48 !important;
+}
+
+page .mc-cut {
+	border-right: 1rpx dashed var(--line-strong) !important;
+}
+
+page .mc-amt,
+page .mc-num {
+	color: var(--accent) !important;
+}
+
+page .mc-title {
+	color: var(--ink) !important;
+	font-weight: 600 !important;
+}
+
+page .mc-status {
+	background: var(--accent-soft) !important;
+	color: var(--accent-deep) !important;
+	border-radius: 6rpx !important;
+}
+
+page .addr-card {
+	border-radius: 20rpx !important;
+}
+
+page .ac-name {
+	color: var(--ink) !important;
+	font-weight: 600 !important;
+}
+
+page .ac-tag {
+	background: var(--brand) !important;
+	color: #fff8ef !important;
+	border-radius: 4rpx !important;
+}
+
+page .ac-act {
+	border-color: var(--line-strong) !important;
+	color: var(--ink-2) !important;
+}
+
+page .ac-act.danger {
+	color: var(--danger) !important;
+	border-color: rgba(166, 75, 60, 0.25) !important;
+}
+
+page .fix-bar {
+	background: var(--paper) !important;
+}
+
+page .form-card {
+	border-radius: 28rpx 28rpx 0 0 !important;
+}
+
+page .f-label {
+	color: var(--ink) !important;
+}
+
+page .switch-field {
+	border-top: 1rpx solid var(--line) !important;
+}
+
+page .head-title {
+	font-size: 46rpx !important;
+}
+
+page .head-sub {
+	color: var(--ink-2) !important;
+}
+
+page .rank-item {
+	border-bottom: 1rpx solid var(--line) !important;
+}
+
+page .rk-badge {
+	color: var(--brand) !important;
+	background: var(--paper-soft) !important;
+}
+
+page .rk-1 {
+	color: var(--accent-deep) !important;
+}
+
+page .rk-img {
+	border-radius: 14rpx !important;
+}
+
+page .rk-name {
+	color: var(--ink) !important;
+	font-weight: 600 !important;
+}
+
+page .rk-price,
+page .new-price {
+	color: var(--accent) !important;
+}
+
+page .new-card {
+	background: var(--paper) !important;
+	border: 1rpx solid var(--line) !important;
+	box-shadow: var(--shadow-card) !important;
+}
+
+page .new-img {
+	border-radius: 14rpx !important;
+}
+
+page .res-code {
+	color: var(--accent) !important;
+}
+
+page .res-head {
+	border-bottom: 1rpx solid var(--line) !important;
+}
+
+page .res-state {
+	color: var(--green) !important;
+}
+
+page .res-item {
+	border-bottom: 1rpx solid var(--line) !important;
+}
+
+page .pin-row,
+page .code-row {
+	border-bottom: 1rpx solid var(--line) !important;
+}
+
+/* ---------- AI 对话 ---------- */
+page .ai-page {
+	background: var(--cream-100) !important;
+}
+
+page .user-bubble {
+	background: var(--brand) !important;
+	color: #fff8ef !important;
+	box-shadow: none !important;
+}
+
+page .user-bubble .bubble-text {
+	color: #fff8ef !important;
+}
+
+page .ai-bubble {
+	color: var(--ink) !important;
+	box-shadow: var(--shadow-card) !important;
+}
+
+page .bubble-text {
+	color: var(--ink) !important;
+}
+
+page .user-bubble .bubble-text {
+	color: #fff8ef !important;
+}
+
+page .system-line {
+	color: var(--ink-2) !important;
+}
+
+page .composer {
+	background: var(--paper) !important;
+	border-top: 1rpx solid var(--line) !important;
+}
+
+page .composer-input {
+	color: var(--ink) !important;
+}
+
+page .send-btn {
+	background: var(--brand) !important;
+}
+
+page .order-card {
+	border-radius: 20rpx !important;
+}
+
+page .oc-tag {
+	background: var(--accent-soft) !important;
+	color: var(--accent-deep) !important;
+}
+
+page .oc-name {
+	color: var(--ink) !important;
+}
+
+page .oc-total {
+	color: var(--accent-deep) !important;
+}
+
+page .oc-action {
+	color: var(--brand) !important;
+}
+
+page .retry {
+	background: var(--danger) !important;
+}
+
+/* ---------- 深色海报与购物车栏的对比修正 ---------- */
+page .t-dark .sl-title,
+page .t-dark .sl-sub,
+page .t-dark .big-pre,
+page .t-dark .big-suf {
+	color: #fff8ef !important;
+}
+
+page .t-dark .big-num {
+	color: #efd4ad !important;
+}
+
+page .t-fresh .sl-title,
+page .t-fresh .sl-kicker {
+	color: #34452f !important;
+}
+
+page .t-fresh .sl-sub {
+	color: #5d6f57 !important;
+}
+
+page .t-fresh .big-num {
+	color: #4f644c !important;
+}
+
+page .cart-bar .cb-num,
+page .cart-bar .cb-sym,
+page .cart-bar .cb-pre {
+	color: #fff8ef !important;
+}
+
+page .cart-bar .cb-orig {
+	color: rgba(255, 248, 239, 0.48) !important;
+}
+
+page .wx-switch-input {
+	background: #ddd2c5 !important;
+	border-color: #ddd2c5 !important;
+}
+
+page .wx-switch-input.wx-switch-input-checked {
+	background: var(--brand, #6f4b2e) !important;
+	border-color: var(--brand, #6f4b2e) !important;
+}
+
+/* 深色横幅上的浅色辅助信息 */
+page .banner .pc-label {
+	color: rgba(255, 248, 239, 0.9) !important;
+	font-size: 22rpx !important;
+}
+
+page .oc-tag {
+	background: #f1dfcd !important;
+	color: #53351f !important;
+}
+
+/* ---------- 共享弹层 / 资料弹层 ---------- */
+page .ps-card,
+page .modal-dialog {
+	background: var(--paper) !important;
+	border: 1rpx solid var(--line) !important;
+	border-radius: 24rpx !important;
+	box-shadow: var(--shadow-card) !important;
+}
+
+page .ps-title,
+page .modal-title,
+page .modal-hd-title {
+	font-family: var(--serif);
+	color: var(--ink) !important;
+	font-weight: 600 !important;
+}
+
+page .ps-desc,
+page .ps-label,
+page .ps-avatar-sub,
+page .modal-content,
+page .modal-hd {
+	color: var(--ink-2) !important;
+}
+
+page .ps-save,
+page .modal-main {
+	background: var(--brand) !important;
+	color: #fff8ef !important;
+	border-radius: 999rpx !important;
+	box-shadow: none !important;
+}
+
+page .ps-later,
+page .modal-hd-button {
+	background: transparent !important;
+	border: 1rpx solid var(--line-strong) !important;
+	color: var(--brand) !important;
+	border-radius: 999rpx !important;
+}
+
+page .ps-input,
+page .modal-input {
+	background: var(--paper-soft) !important;
+	border: 1rpx solid var(--line) !important;
+	border-radius: 14rpx !important;
+	color: var(--ink) !important;
+}
+
+page .modal-footer,
+page .modal-hd {
+	border-color: var(--line) !important;
+}
+
+/* ---------- 辅助信息可读性 ---------- */
+page .scan-sub,
+page .rec-desc,
+page .st-meta,
+page .od-spec,
+page .od-count,
+page .system-line,
+page .cp-desc,
+page .cp-min {
+	font-size: 24rpx !important;
+}
+
+page .mb-key,
+page .mb-unit,
+page .mcl-text,
+page .mcl-badge,
+page .ms-label,
+page .p-tag,
+page .cpn-spec,
+page .sp-desc,
+page .sp-gsub {
+	font-size: 22rpx !important;
+}

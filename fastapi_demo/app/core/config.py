@@ -30,6 +30,12 @@ class Settings:
     wechat_appid: str = os.getenv("WECHAT_APPID", "").strip()
     wechat_secret: str = os.getenv("WECHAT_SECRET", "").strip()
     staff_pin: str = os.getenv("STAFF_PIN", "").strip()
+    llm_api_key: str = os.getenv("DEEPSEEK_API_KEY", "").strip() or os.getenv("LLM_API_KEY", "").strip()
+    llm_base_url: str = os.getenv("LLM_BASE_URL", "https://api.deepseek.com/v1").strip()
+    llm_model: str = os.getenv("LLM_MODEL", "deepseek-chat").strip()
+    ai_min_interval_seconds: float = float(os.getenv("AI_MIN_INTERVAL_SECONDS", "2") or 2)
+    order_expiry_minutes: int = int(os.getenv("ORDER_EXPIRY_MINUTES", "15") or 15)
+    order_expiry_interval_seconds: int = int(os.getenv("ORDER_EXPIRY_INTERVAL_SECONDS", "60") or 60)
     sql_echo: bool = os.getenv("SQL_ECHO", "").strip().lower() in {"1", "true", "yes", "on"}
     access_token_ttl: int = 7 * 24 * 3600
     refresh_token_ttl: int = 30 * 24 * 3600
@@ -39,6 +45,10 @@ class Settings:
     @property
     def wechat_login_enabled(self) -> bool:
         return bool(self.wechat_appid and self.wechat_secret)
+
+    @property
+    def ai_enabled(self) -> bool:
+        return bool(self.llm_api_key)
 
     @property
     def image_url(self) -> str:

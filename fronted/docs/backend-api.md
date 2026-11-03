@@ -523,6 +523,8 @@
 ```
 
 > 请求头 `Idempotency-Key` 可选，建议结算页生成 UUID；同一用户 10 分钟内重复提交相同 key 会直接返回首单，不会重复建单/锁券。
+> 创建订单会以条件 UPDATE **预占库存**（并发下只有库存足够的请求成功，不足返回 `2002`）；库存预占随订单一起提交，不会出现“创建成功但没占库存”。
+> 待支付订单 15 分钟未支付会自动取消并释放库存/券（后台线程扫描，可用 `ORDER_EXPIRY_MINUTES` 调整）。
 > `pick_code` 在支付成功、进入制作中时生成（5 位数字：`10~99` + 时间戳后 3 位）。
 > 配送单（`mode=delivery`）必须传 `address_id`，否则返回 `1001`。
 > 桌码点餐时请求加 `"table_no": "A01"`：桌号必须属于该门店且只允许自取单，否则返回 `1004`（桌号不存在）/`1001`（堂食单选了外送）。`price-preview` 不需要传 `table_no`。
@@ -598,6 +600,8 @@
 ```
 
 > 回调成功后：订单 `pending_pay → making`，生成 `pick_code`，写入 `pay_time`，给用户加积分；对已支付订单重复回调不报错。
+> 新订单的库存在创建时已预占，支付不会重复扣库存；旧订单（`stock_reserved=0`）才在回调中条件扣减。
+> 支付与取消/核销都用条件状态更新，重复回调、并发取消、店员核销与用户取消不会重复扣库存或重复退款。
 > **演示环境**：`prepay` 只返回模拟支付参数，`notify` 不验签、直接置为支付成功（请求体 `{ "out_trade_no": "...", "transaction_id": "..." }`）。未接入真实微信支付时，可让前端在 `uni.requestPayment` 后直接调用该回调。
 
 ### 3.7 会员
@@ -624,7 +628,7 @@
 }
 ```
 
-> 等级阈值：V1 `0` / V2 `200` / V3 `800` / V4 `2000`；`growth` 当前等于累计积分，`progress` 为当前等级到下一等级的进度（0~1，最高等级为 1）。
+> 等级阈值：V1 `0` / V2 `200` / V3 `800` / V4 `2000`；`growth` 是累计成长值（只增不减），消费积分只扣 `points`，不会降级；`progress` 为当前等级到下一等级的进度（0~1，最高等级为 1）。
 
 **GET /member/points/logs?page=1&page_size=20** 响应 data：
 
@@ -735,6 +739,37 @@
 
 > 店员口令来自后端 `.env` 的 `STAFF_PIN`，未配置返回 `9000`（503），口令错误返回 `1003`（403）。演示版没有店员账号体系，生产应改为店员登录 + 角色权限。订单必须处于 `making` 才能核销；已核销/已取消/未支付返回 `4001`。
 
+### 3.11 AI 点单助手
+
+| 方法 | 路径 | 鉴权 | 说明 |
+|---|---|---|---|
+| POST | `/ai/chat` | 是 | 自然语言点单 / 查库存 / 查订单，返回回复与订单卡片 |
+| GET | `/ai/history` | 是 | 当前用户本次会话的消息（内存保存，2 小时过期） |
+| DELETE | `/ai/session` | 是 | 清空当前用户本次会话 |
+
+**POST /ai/chat**
+
+```json
+// 请求
+{ "message": "少冰五分糖一杯黑糖波波厚奶茶", "store_id": 2, "table_no": "B03" }
+// 响应 data
+{
+  "answer": "已为你下单：黑糖波波厚奶茶×1（少冰/五分糖），订单已创建，当前待支付，请到订单详情完成支付。",
+  "order": { "out_trade_no": "CAT1760000000000123", "state": "pending_pay", "...": "完整订单字段见 2.7" }
+}
+```
+
+- `message` 1~500 字；`store_id` 可选，不传时取第一家未打烊门店；`table_no` 可选，扫桌码进入时由前端带上，后端会校验桌号属于该门店。
+- 后端用 LangGraph ReAct 循环：LLM 节点 → 工具节点 → LLM 节点；工具为 `query_stock`（查库存/菜单）、`create_order`（创建订单）、`query_my_orders`（查最近订单）。
+- 下单固定 `mode=pickup`，一次一款；不允许模型指定价格、优惠券、地址，金额由现有 `quote()` / `create_order()` 计算。带 `table_no` 时订单会记录桌号（堂食），桌号非法返回 `1004`。
+- 创建的订单状态为 `pending_pay`，不会自动支付；`order` 字段用于前端渲染订单卡片并跳订单详情。
+- 工具在库存不足、售罄、门店打烊、冰度/糖度非法、名称匹配到多款时返回原因，模型据此继续追问或拒绝，不生成订单。
+- 同一用户 30 秒内相同门店 + 桌号 + 商品 + 规格 + 数量的重复工具调用会返回已创建的订单，防止模型重复下单。
+- 同一用户发送消息默认有 2 秒冷却（`AI_MIN_INTERVAL_SECONDS`），过快返回 `9000`（429）。
+- 会话按 Bearer 身份保存在进程内存，不写数据库；服务重启或超过 2 小时清空。生产可换 Redis。
+
+> 未配置 `DEEPSEEK_API_KEY`（或 `LLM_API_KEY`）返回 `9000`（503）；模型/网络异常也返回 `9000`（503）。如果工具已创建订单但最终回复超时，响应仍会带上 `order`。
+
 ---
 
 ## 4. 订单状态机
@@ -754,6 +789,7 @@ pending_pay ──支付成功──> making ──制作完成──> completed
 | cancelled | 已取消 | - | 再来一单 |
 
 > 建议用定时任务（APScheduler / Celery beat）扫描 `pending_pay` 超时订单自动取消，并释放库存。
+> 当前 `fastapi_demo` 已用后台线程实现：默认 15 分钟、每 60 秒扫描一次；条件状态更新保证多进程下也不会重复释放。
 > 演示后端没有门店出杯系统，可用 `POST /orders/{out_trade_no}/complete` 手动把 `making` 置为 `completed`，便于验证评价/再来一单。
 
 ---
@@ -816,7 +852,7 @@ fastapi_demo/
 ├── .env.example                # 数据库连接示例（复制为 .env 后填写）
 ├── app/
 │   ├── core/{config,response,security}.py
-│   ├── api/v1/{auth,users,stores,menu,coupons,orders,payments,member,addresses,tables,staff}.py
+│   ├── api/v1/{auth,users,stores,menu,coupons,orders,payments,member,addresses,tables,staff,ai}.py
 │   ├── constants.py            # 冰/糖选项、订单状态文案、时间工具
 │   ├── db.py                   # Engine / SessionLocal / get_db
 │   ├── models.py               # SQLAlchemy 2.0 ORM（16 张表）
@@ -824,7 +860,9 @@ fastapi_demo/
 │   ├── serializers.py          # ORM 对象 → 接口 JSON（金额转 float、路径转完整 URL）
 │   ├── tables.py               # 门店桌位配置 + 桌码 scene 解析
 │   ├── deps.py
-│   └── services/{pricing,orders,coupons,member,catalog,pickup}.py
+│   └── services/
+│       ├── {pricing,orders,coupons,member,catalog,pickup}.py
+│       └── ai_agent/           # LangGraph ReAct：state/prompt/tools/graph/service
 ├── database/
 │   ├── schema_sqlite.sql
 │   ├── schema_mysql.sql
@@ -850,6 +888,7 @@ python -m uvicorn main:app --reload       # 依赖已装在 .venv 中
 > 已有数据库升级到桌码版本时，**不要**重建库（会清空用户/订单），执行一次：
 > `ALTER TABLE orders ADD COLUMN table_no TEXT;`（MySQL 用 `VARCHAR(8) NULL`）。
 > 核销口令在 `.env` 配置 `STAFF_PIN=6位数字`，修改后需重启服务。
+> AI 点单在 `.env` 配置 `DEEPSEEK_API_KEY`（可选 `LLM_BASE_URL` / `LLM_MODEL`），修改后需重启服务。
 
 切换到 MySQL：
 
@@ -857,7 +896,7 @@ python -m uvicorn main:app --reload       # 依赖已装在 .venv 中
 2. 复制 `.env.example` 为 `.env`，填写 `DATABASE_URL=mysql+pymysql://root:你的密码@127.0.0.1:3306/milktea?charset=utf8mb4`。
 3. 重启服务。`.env` 已被 `.gitignore` 忽略，不会提交密码。
 
-> 环境变量：`DATABASE_URL` 切换数据库，`APP_SECRET` 覆盖签名密钥，`BASE_URL` 用于拼接图片/头像完整 URL，`SQL_ECHO=1` 可打印 SQL，`STAFF_PIN` 为店员核销口令（演示用）。
+> 环境变量：`DATABASE_URL` 切换数据库，`APP_SECRET` 覆盖签名密钥，`BASE_URL` 用于拼接图片/头像完整 URL，`SQL_ECHO=1` 可打印 SQL，`STAFF_PIN` 为店员核销口令（演示用），`DEEPSEEK_API_KEY` 为 AI 点单密钥。
 
 ### 6.2 关键依赖
 
@@ -882,11 +921,11 @@ async def biz_error_handler(request, exc):
 
 ### 6.3 下单事务建议
 
-1. `SELECT ... FOR UPDATE` 锁定商品库存
-2. 重新计算价格（不信任前端）
-3. 校验券状态与门槛，标记券为「锁定」
-4. 写订单 + 明细快照
-5. 提交事务；支付回调中扣库存、核销券、加积分
+1. `quote()` 重算价格，校验门店/商品/券
+2. 用条件 UPDATE 预占商品库存：`stock = stock - n WHERE stock >= n`
+3. 用条件 UPDATE 锁定优惠券（未使用、未锁定、未过期）
+4. 写订单 + 明细快照 + 幂等键
+5. 提交事务；支付只做状态迁移、券核销、积分入账（新订单不重复扣库存）
 6. 幂等：`Idempotency-Key` 存 Redis（TTL 10 分钟），重复请求直接返回首单结果
 
 ### 6.4 微信支付
@@ -908,6 +947,7 @@ async def biz_error_handler(request, exc):
 | 订单列表 `pages/order/index` | `/orders/counts`、`/orders?state=` |
 | 订单详情 `pages/order/order` | `/orders/{no}`、`/orders/{no}/pickup-qr`、`/payments/{no}`、`/orders/{no}/cancel`、`/orders/{no}/review` |
 | 店员核销 `pages/staff/verify` | `/staff/pickup/lookup`、`/staff/pickup/complete` |
+| AI 点单 `pages/ai/index` | `/ai/chat`、`/ai/history`、`/ai/session` |
 | 我的 `pages/user` | `/users/me`、`/member/profile`、`/orders/counts`、`/users/me/coupons` |
 | 排行榜 `pages/rank` | `/menu/rank?period=week` |
 
@@ -923,7 +963,7 @@ async def biz_error_handler(request, exc):
 | 1003 | 403 | 无权限（操作他人订单等） |
 | 1004 | 404 | 资源不存在 |
 | 2001 | 400 | 商品已下架 |
-| 2002 | 409 | 库存不足 |
+| 2002 | 409 | 库存不足（创建订单预占库存时） |
 | 2003 | 409 | 商品在该门店售罄 |
 | 2004 | 409 | 门店已打烊 |
 | 3001 | 400 | 优惠券不可用（门槛不足） |
@@ -937,6 +977,8 @@ async def biz_error_handler(request, exc):
 | 5002 | 400 | 支付回调验签失败 |
 | 6001 | 400 | 积分不足 |
 | 9000 | 500 | 服务内部错误 |
+
+> AI 点单未配置模型密钥或模型调用失败时，`/ai/chat` 返回 `9000`（HTTP 503），前端展示「智能助手有点忙，请稍后再试」。
 
 ### 请求示例（校验失败）
 

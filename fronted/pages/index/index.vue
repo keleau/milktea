@@ -139,12 +139,15 @@
 		<view class="footer-slogan anim d2">
 			<text>— 四猫茶学园 · 今天的奶茶，由猫评分 —</text>
 		</view>
+
+		<ai-float />
 	</view>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
+import AiFloat from '@/components/ai-float/ai-float.vue'
 import { getLines, getProducts } from '@/common/api/catalog'
 import { resolveTable } from '@/common/api/tables'
 import { ensureLogin, fetchMe } from '@/common/api/auth'
@@ -185,8 +188,9 @@ const loadCatalog = async () => {
 		])
 		lines.value = lineList
 		const drinks = (page.items || []).map(toDrink)
-		const hot = drinks.filter(d => d.hot)
-		recommendations.value = (hot.length ? hot : drinks).slice(0, 3)
+		const inStock = drinks.filter(d => d.stock > 0)
+		const hot = inStock.filter(d => d.hot)
+		recommendations.value = (hot.length ? hot : inStock).slice(0, 3)
 	} catch (error) {
 		console.warn('[home] 推荐加载失败', error)
 	}
@@ -281,7 +285,7 @@ page {
 }
 .page {
 	min-height: 100vh;
-	padding-bottom: 48rpx;
+	padding-bottom: 300rpx;
 }
 .hv {
 	opacity: 0.85;

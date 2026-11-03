@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from app.api.v1 import (
     addresses,
+    ai,
     auth,
     coupons,
     member,
@@ -26,3 +27,4 @@ api_router.include_router(member.router)
 api_router.include_router(addresses.router)
 api_router.include_router(tables.router)
 api_router.include_router(staff.router)
+api_router.include_router(ai.router)

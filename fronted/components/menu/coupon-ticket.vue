@@ -33,11 +33,12 @@ defineEmits(['claim'])
 	position: relative;
 	display: flex;
 	align-items: center;
-	background: #ffffff;
-	border-radius: 22rpx;
+	background: var(--paper, #fffcf7);
+	border: 1rpx solid var(--line, #e6d9c9);
+	border-radius: 20rpx;
 	padding: 20rpx;
 	margin: 0 16rpx 16rpx;
-	box-shadow: 0 8rpx 24rpx rgba(61, 50, 41, 0.06);
+	box-shadow: 0 8rpx 20rpx rgba(63, 42, 26, 0.045);
 	overflow: hidden;
 }
 .cp-cut {
@@ -46,26 +47,28 @@ defineEmits(['claim'])
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-	border-right: 2rpx dashed #eadfcd;
+	border-right: 1rpx dashed var(--line-strong, #d8c7b4);
 }
 .cp-amt {
 	display: flex;
 	align-items: baseline;
-	color: #e8833a;
+	color: var(--accent, #b86a3b);
 }
 .cp-sym {
 	font-size: 24rpx;
-	font-weight: bold;
+	font-weight: 500;
 }
 .cp-num {
+	font-family: var(--serif, "Songti SC", "Noto Serif SC", Georgia, serif);
 	font-size: 56rpx;
-	font-weight: 900;
+	font-weight: 600;
 	line-height: 1;
+	letter-spacing: -0.02em;
 }
 .cp-min {
 	margin-top: 6rpx;
-	font-size: 18rpx;
-	color: #b7ab9e;
+	font-size: 22rpx;
+	color: var(--ink-2, #6e5d4e);
 }
 .cp-notch {
 	position: absolute;
@@ -73,7 +76,7 @@ defineEmits(['claim'])
 	width: 22rpx;
 	height: 22rpx;
 	border-radius: 50%;
-	background: #faf6f0;
+	background: var(--cream-100, #f4ede3);
 }
 .cp-n1 {
 	top: -11rpx;
@@ -89,8 +92,8 @@ defineEmits(['claim'])
 .cp-title {
 	display: block;
 	font-size: 27rpx;
-	font-weight: bold;
-	color: #3d3229;
+	font-weight: 600;
+	color: var(--ink, #2c211a);
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
@@ -98,8 +101,8 @@ defineEmits(['claim'])
 .cp-desc {
 	display: block;
 	margin-top: 6rpx;
-	font-size: 19rpx;
-	color: #8c8177;
+	font-size: 22rpx;
+	color: var(--ink-2, #6e5d4e);
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
@@ -109,15 +112,14 @@ defineEmits(['claim'])
 	height: 56rpx;
 	line-height: 56rpx;
 	padding: 0 24rpx;
-	border-radius: 999rpx;
-	background: linear-gradient(135deg, #f09a52 0%, #e8833a 100%);
-	box-shadow: 0 4rpx 12rpx rgba(232, 131, 58, 0.3);
-	color: #ffffff;
+	border-radius: 12rpx;
+	background: var(--accent-deep, #9f552d);
+	color: #fff8ef;
 	font-size: 22rpx;
-	font-weight: 500;
+	font-weight: 600;
 }
 .cp-btn.claimed {
 	background: #ddd2c5;
-	box-shadow: none;
+	color: #fffaf3;
 }
 </style>

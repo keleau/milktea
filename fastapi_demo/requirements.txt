@@ -7,3 +7,8 @@ PyMySQL[rsa]>=1.1
 
 # 仅 database/build_table_qrcodes.py 生成桌码时使用
 segno>=1.6
+
+# AI 点单助手（LangGraph ReAct + DeepSeek OpenAI 兼容接口）
+langchain>=1.0,<2
+langgraph>=1.0,<2
+langchain-openai>=1.0,<2

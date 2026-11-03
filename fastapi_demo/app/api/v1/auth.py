@@ -72,6 +72,7 @@ def wx_login(payload: LoginIn, db: Session = Depends(get_db)):
             level=db.get(MemberLevel, "V1"),
             level_code="V1",
             points=0,
+            growth=0,
             balance=Decimal("0.00"),
             created_at=now_ms(),
         )
