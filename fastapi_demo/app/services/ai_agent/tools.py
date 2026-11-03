@@ -191,6 +191,8 @@ def build_tools(
 
         recent_key = (
             user.id,
+            store.id,
+            table_no,
             product.id,
             ice,
             sugar,

@@ -34,7 +34,7 @@ defineEmits(['pick'])
 .sidebar {
 	width: 176rpx;
 	height: 100%;
-	background: #f3ede4;
+	background: #f0e6d9;
 	flex-shrink: 0;
 }
 .sb-item {
@@ -45,44 +45,45 @@ defineEmits(['pick'])
 .sb-t {
 	font-size: 25rpx;
 	line-height: 1.3;
-	color: #8c8177;
+	color: var(--ink-2, #6e5d4e);
 }
 .sb-item.on {
-	background: #faf6f0;
+	background: var(--paper, #fffcf7);
 }
 .sb-item.on .sb-t {
-	font-weight: bold;
-	color: #3d3229;
+	font-weight: 600;
+	color: var(--ink, #2c211a);
 }
 .sb-ind {
 	position: absolute;
 	left: 0;
 	top: 50%;
 	transform: translateY(-50%);
-	width: 6rpx;
+	width: 5rpx;
 	height: 0;
 	border-radius: 3rpx;
-	background: #e8833a;
+	background: var(--accent-deep, #9f552d);
 	transition: height 0.18s ease;
 }
 .sb-item.on .sb-ind {
-	height: 36rpx;
+	height: 34rpx;
 }
 .sb-badge {
 	position: absolute;
 	top: 4rpx;
 	right: 6rpx;
 	font-size: 15rpx;
-	font-weight: bold;
+	font-weight: 600;
 	line-height: 1;
 	padding: 3rpx 7rpx;
-	border-radius: 6rpx 6rpx 6rpx 0;
-	color: #ffffff;
+	border-radius: 4rpx 4rpx 4rpx 0;
+	color: #fff8ef;
+	letter-spacing: 0.04em;
 }
 .sb-new {
-	background: #e8833a;
+	background: var(--accent-deep, #9f552d);
 }
 .sb-hot {
-	background: #8b5e3c;
+	background: var(--brand, #6f4b2e);
 }
 </style>

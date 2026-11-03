@@ -105,6 +105,7 @@ sugar_options = ["全糖", "七分糖", "五分糖", "三分糖", "不加糖"]
 | `avatar_path` | `avatar` | `local_avatar`（本地覆盖） | TEXT | 相对路径 | 默认 `/static/images/avatar.jpg` |
 | `level_code` | `level` | `user.level` | TEXT | FK → `member_levels.code` | 写积分时同步更新 |
 | `points` | `points` | `user.points` | INTEGER | `>= 0` | 当前积分 |
+| `growth` | 不下发 | — | INTEGER | `>= 0` | 累计成长值（只增不减），会员等级按它计算 |
 | `balance` | `balance` | `user.balance` | DECIMAL/NUMERIC | `>= 0` | 当前余额（元） |
 | `created_at` | `created_at` | — | BIGINT | NOT NULL | 注册时间 |
 
@@ -234,6 +235,7 @@ sugar_options = ["全糖", "七分糖", "五分糖", "三分糖", "不加糖"]
 | `out_trade_no` | `out_trade_no` | `out_trade_no` | TEXT | PK | 订单号 |
 | `user_id` | 不下发 | — | INTEGER | FK → `users.id` | 下单人 |
 | `state` | `state` | `state`（中文） | TEXT | 枚举 | 英文状态 |
+| `stock_reserved` | 不下发 | — | BOOL | 0/1 | 创建订单时是否已预占库存：新订单 1；旧订单/历史数据 0 |
 | `store_id` | `store_id` | — | INTEGER | FK → `stores.id` | 门店 |
 | `store_name` | `store_name` | — | TEXT | NOT NULL | 门店名快照 |
 | `mode` | `mode` | `mode`（中文） | TEXT | 枚举 | 取餐方式 |
@@ -337,7 +339,7 @@ sugar_options = ["全糖", "七分糖", "五分糖", "三分糖", "不加糖"]
 |---|---|---|
 | `User.coupon_count` | `user_coupons` | `status='unused' AND expire_at > now` 的数量 |
 | `User.level` | `users.level_code` + `member_levels` | `${code} ${name}` |
-| `MemberProfile.growth` | `users.points` | 与积分相同（演示版成长值 = 积分） |
+| `MemberProfile.growth` | `users.growth` | 累计成长值，只增不减；会员等级按它计算 |
 | `MemberProfile.next_level/progress` | `member_levels` | 按下一等级阈值计算 |
 | `Order.state_text` | `orders.state` | 待支付 / 制作中 / 已完成 / 已取消 |
 | `Order.mode_text` | `orders.mode` | 自取 / 外送 |
@@ -376,6 +378,7 @@ sugar_options = ["全糖", "七分糖", "五分糖", "三分糖", "不加糖"]
 | `session.ordersFilter` | 中文状态或 `null` | 仅页面跳转临时状态 |
 | `milk_table_context` | `{storeId, storeName, tableNo}` | 扫码堂食上下文，取消堂食或换门店时清除 |
 | `milk_staff_pin` | 店员核销口令 | 仅本机保存，演示用 |
+| `milk_ai_float_hidden` | `'1'` / `''` | 悬浮 AI 猫娘是否收起成小气泡，仅前端 UI 状态，不参与业务 |
 
 ### 5.2 结算草稿字段映射
 
@@ -455,8 +458,9 @@ pending_pay --支付成功--> making --制作完成--> completed
      +--用户取消 / 超时--------+--> cancelled
 ```
 
-- 支付时扣库存、核销券、加积分（`earning_points = int(total)`）。
-- `making` 取消时回滚库存、退回积分、释放券。
+- 创建 `pending_pay` 订单时用条件 UPDATE 预占库存（`stock_reserved = 1`）；支付不重复扣库存。
+- 取消待支付、取消制作中、15 分钟超时自动取消都会释放预占库存；`making` 取消还退回积分、释放券。
+- 旧订单 `stock_reserved = 0` 时兼容旧逻辑：支付时扣库存，取消 `making` 时回补。
 - 只有 `completed` 且未评价的订单可评价。
 
 ### 7.3 一致性要求
@@ -466,8 +470,9 @@ pending_pay --支付成功--> making --制作完成--> completed
 3. **积分**：`users.points = 该用户 points_logs.points 之和`（演示版以 `users.points` 为准，流水用于展示与审计）。
 4. **等级**：修改积分后必须同步 `users.level_code`。
 5. **券**：同一券同一时间最多被一个订单锁定；支付后必须清空 `locked_by`。
-6. **地址**：每个用户最多一条 `is_default = 1`，由业务层在事务内维护。
-7. **图片**：数据库只存相对路径，API 层统一拼接域名。
+6. **库存**：创建订单以条件 UPDATE 预占库存；支付/取消/超时用条件状态更新保证同一订单只执行一次；`stock` 不允许为负。
+7. **地址**：每个用户最多一条 `is_default = 1`，由业务层在事务内维护。
+8. **图片**：数据库只存相对路径，API 层统一拼接域名。
 
 ---
 
@@ -497,7 +502,7 @@ pending_pay --支付成功--> making --制作完成--> completed
 | `users.id` | 1001 |
 | `openid` | `mock-openid-demo` |
 | 昵称 | 猫友1234 |
-| 等级 | V2 银牌猫评员（320 积分） |
+| 等级 | V2 银牌猫评员（320 积分 / 320 成长值） |
 | 余额 | ¥8.50 |
 | 注册时间 | 1788220800000（2026-09-01 08:00 UTC+8） |
 | 券 | 501 满15减3、502 满25减5，过期时间 1893456000000（2030-01-01 08:00 UTC+8） |
@@ -567,6 +572,8 @@ DATABASE_URL=mysql+pymysql://root:你的密码@127.0.0.1:3306/milktea?charset=ut
 
 - 金额在 ORM 层使用 `Decimal`，接口序列化时转 `float`。
 - 图片字段存相对路径（如 `/static/images/drink_1.jpg`），接口输出时拼接 `BASE_URL`。
+- `orders.stock_reserved` 是库存预占标记：已有库升级时执行 `ALTER TABLE orders ADD COLUMN stock_reserved INTEGER NOT NULL DEFAULT 0;`（MySQL 用 `TINYINT(1) NOT NULL DEFAULT 0`），不要重建数据库。
+- `users.growth` 是累计成长值：已有库升级时执行 `ALTER TABLE users ADD COLUMN growth INTEGER NOT NULL DEFAULT 0;`，再执行 `UPDATE users SET growth = points;`（MySQL 用 `INT`）。积分消费只扣 `points`，不回退 `growth` 和等级。
 - 订单中的商品、小料、收货地址均为下单时快照；删除地址后 `orders.address_id` 置 NULL，快照字段仍保留用于历史展示。
 - 写操作在请求内提交事务；库存扣减与订单支付使用 `SELECT ... FOR UPDATE`（MySQL 生效）。
 - AI 点单助手不新增数据表：对话按用户保存在进程内存（2 小时），下单仍写入 `orders` / `order_items` / `order_item_toppings` / `idempotency_keys`，结构调整与普通下单一致。

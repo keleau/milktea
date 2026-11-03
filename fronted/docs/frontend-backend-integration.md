@@ -138,6 +138,8 @@ cd fastapi_demo
 | `common/api/member.js` | 会员等级、积分明细、积分兑换 |
 | `common/api/addresses.js` | 地址增删改查、设默认 |
 | `common/api/ai.js` | AI 点单对话、会话历史、清空会话 |
+| `components/ai-float/ai-float.vue` | 首页/点单页悬浮猫娘入口：点击进 AI 页，眼睛按钮隐藏为小 AI 气泡 |
+| `common/store/aiFloat.js` | 悬浮入口隐藏状态（本地持久化，首页/点单页共享） |
 | `common/api/adapters.js` | 后端字段 → 页面现有视图字段；金额/时间/距离格式化 |
 
 ### 3.2 统一响应与错误
@@ -213,6 +215,7 @@ uni.showToast({ title: error.message || '请求失败', icon: 'none' })
 | `milk_store_id` | 当前选中门店 ID | 菜单 → 详情 → 结算 |
 | `milk_table_context` | 扫码得到的 `{storeId, storeName, tableNo}` | 堂食上下文，跨首页/菜单/详情/结算保留，点「取消」清除 |
 | `milk_staff_pin` | 店员核销口令 | 店员核销页本机保存，仅演示用 |
+| `milk_ai_float_hidden` | `'1'` / `''` | 悬浮猫娘是否收起成小 AI 气泡，首页/点单页共享 |
 | `common/store/session.js` | 结算草稿、订单筛选、结算页选中的地址 ID | 页面间临时状态，不落盘 |
 
 旧的 `milk_orders` 不再读取；接入后订单以服务端数据库为准。
@@ -248,7 +251,7 @@ uni.showToast({ title: error.message || '请求失败', icon: 'none' })
 | 产品线标签颜色 | `GET /menu/lines` | `lineOf()` 按 `line_id` 查 |
 | 页脚门店标语 | 固定文案「今天的奶茶，由猫评分」 | 后端无此字段，不放接口 |
 | 轮播海报 | 本地 `static/resource/images/banner_*.jpg` | 营销素材，不走接口 |
-| AI 点单入口 | 无（页面跳转） | 白色大板内「AI 点单」行，`navigateTo('/pages/ai/index')` |
+| AI 点单入口 | 无（页面跳转） | 首页/点单页右下角悬浮猫娘 GIF，`navigateTo('/pages/ai/index')`；眼睛按钮收起为小 AI 气泡 |
 
 失败策略：用户信息失败不影响菜单展示；推荐为空时显示原空区，不弹错误。
 
@@ -375,6 +378,7 @@ uni.redirectTo({ url: `/pages/order/order?oid=${order.out_trade_no}` })
 - 外送必须选地址，前端先拦一次；后端仍会校验 `address_id`（1001）。
 - 草稿带 `tableNo` 时：结算页隐藏自取/外送切换，展示「堂食 A01 桌」，创建订单传 `table_no`；`price-preview` 不传该字段。后端只允许自取单带桌号，外送 + 桌号返回 1001。
 - 创建成功后即使支付失败，也跳订单详情，不再回结算页重复建单；待支付订单可在详情页继续支付或取消（取消会释放券）。
+- 创建订单时后端会用条件 UPDATE 预占库存；取消待支付/制作中、或 15 分钟超时自动取消都会释放库存。
 - 试算 / 建单会校验商品上下架、库存、门店打烊、券门槛与占用，错误码见第 6 章。
 
 ### 4.6 订单列表 `pages/order/index.vue`
@@ -407,7 +411,7 @@ uni.redirectTo({ url: `/pages/order/order?oid=${order.out_trade_no}` })
 | 状态 | 按钮 | 接口 | 后续 |
 |---|---|---|---|
 | `pending_pay` | 立即支付 | `prepay` → `notify` | 重新拉详情，状态变 `making`，出取餐码 |
-| `pending_pay` / `making` | 取消订单 | `POST /orders/{no}/cancel` | 确认弹窗；`making` 取消会回补库存、退积分、释放券 |
+| `pending_pay` / `making` | 取消订单 | `POST /orders/{no}/cancel` | 确认弹窗；两者都会释放预占库存，`making` 另退积分、释放券 |
 | `making` | 模拟出杯 | `POST /orders/{no}/complete` | 演示用，状态变 `completed` |
 | `completed` 且未评价 | 去评价 | `POST /orders/{no}/review` | `rating` 1~5 + `content` ≤200 字 |
 | `completed` / `cancelled` | 再来一单 | `POST /orders/{no}/repeat` | 用返回草稿补齐商品视图后进结算页 |
@@ -454,7 +458,7 @@ setCheckoutDraft({
   - 响应 `data.avatar` 是完整 URL，写回用户缓存和页面。
   - 后端支持 jpg/png/webp；文件落在 `fastapi_demo/static/avatars/`（已 gitignore）。
 - 「优惠券」入口进入券包页；「收货地址」入口进入地址页。
-- 功能列表新增「智能点单助手」入口，进入 `pages/ai/index`。
+- 我的页不再放 AI 入口；AI 入口统一为首页/点单页的悬浮猫娘。
 
 ### 4.9 地址页 `pages/address/index.vue`（新增）
 
@@ -489,7 +493,7 @@ setCheckoutDraft({
 
 ### 4.13 AI 点单 `pages/ai/index.vue`（新增）
 
-- 入口：首页「AI 点单」行、我的页「智能点单助手」；页面标题「智能点单助手」。
+- 入口：首页和点单页右下角悬浮猫娘 GIF（`components/ai-float/ai-float.vue`）；猫娘下方的小眼睛按钮收起成 58rpx 的小 AI 气泡，再点气泡恢复。隐藏状态写 `milk_ai_float_hidden`，两页同步。点单页有购物车栏时整体上移；购物车明细、选店/规格弹层打开时隐藏。页面标题「智能点单助手」。
 - 进入页面先 `ensureLogin()`，再 `GET /ai/history` 恢复本次会话；没有历史时显示欢迎语「你好呀～想点什么奶茶，可以直接告诉我哦😊」。
 - 发送消息：`POST /ai/chat`，请求 `{ message, store_id, table_no }`；`store_id` 取当前选中门店，扫过桌码时改取桌码上下文里的 `storeId` 并带 `tableNo`；超时 60 秒。
 - 页面状态：
@@ -581,10 +585,11 @@ setCheckoutDraft({
 | 看菜单 | `GET /menu/*` | 只读 `products`、`product_lines`、`toppings` |
 | 领券 | `POST /coupons/{id}/claim` | 插入 `user_coupons`（快照标题/门槛/减免/过期时间） |
 | 试算 | `POST /orders/price-preview` | 只读；不改券、不锁库存 |
-| 提交订单 | `POST /orders` | 插入 `orders`、`order_items`、`order_item_toppings`、`idempotency_keys`；`user_coupons.locked_by` 置订单号 |
-| 支付回调 | `POST /payments/wechat/notify` | `orders` → making、写 `pay_time/pick_code/transaction_id`；扣 `products.stock`；`user_coupons.status` → used；`users.points` 增加；插入 `points_logs` |
-| 取消（待支付） | `POST /orders/{no}/cancel` | `orders.state` → cancelled；释放 `user_coupons.locked_by` |
-| 取消（制作中） | `POST /orders/{no}/cancel` | 同上，并回补 `products.stock`、扣回积分、插 `points_logs` |
+| 提交订单 | `POST /orders` | 条件扣减 `products.stock` 预占库存；插入 `orders`（`stock_reserved=1`）、`order_items`、`order_item_toppings`、`idempotency_keys`；`user_coupons.locked_by` 置订单号 |
+| 支付回调 | `POST /payments/wechat/notify` | `orders` → making、写 `pay_time/pick_code/transaction_id`；新订单不再扣库存（旧订单才扣）；`user_coupons.status` → used；`users.points` 增加；插入 `points_logs` |
+| 取消（待支付） | `POST /orders/{no}/cancel` | `orders.state` → cancelled；回补预占的 `products.stock`；释放 `user_coupons.locked_by` |
+| 取消（制作中） | `POST /orders/{no}/cancel` | 同上，并扣回积分、插 `points_logs` |
+| 超时自动取消 | 后台线程 | 15 分钟未支付订单 `orders.state` → cancelled；回补库存、释放券；条件状态更新保证只执行一次 |
 | 模拟出杯 | `POST /orders/{no}/complete` | `orders.state` → completed、写 `finish_time` |
 | 评价 | `POST /orders/{no}/review` | 写 `orders.review_rating/review_content/review_created_at` |
 | 新增/编辑/删除地址 | `/addresses` | 写 `addresses`；删除默认地址会提升下一条为默认；历史订单 `orders.address_id` 由外键置 NULL，快照字段保留 |
@@ -592,7 +597,7 @@ setCheckoutDraft({
 | 改昵称 | `PATCH /users/me` | 写 `users.nickname` |
 | 积分兑换 | `POST /member/points/exchange` | `users.points` 减少、插 `points_logs`；券类兑换插 `user_coupons` |
 | 收藏 | `/users/me/favorites` | 写 `favorites` |
-| AI 对话 | `POST /ai/chat` | 只读 `products`、`orders`；下单时插入 `orders`、`order_items`、`order_item_toppings`、`idempotency_keys`；会话只在进程内存，不落库 |
+| AI 对话 | `POST /ai/chat` | 只读 `products`、`orders`；下单时预占库存并插入 `orders`、`order_items`、`order_item_toppings`、`idempotency_keys`；会话只在进程内存，不落库 |
 
 订单金额、券抵扣、库存、积分都不要在前端直接改数据库或在本地伪造。
 
@@ -605,8 +610,8 @@ setCheckoutDraft({
 3. **验证只读**：菜单、门店、榜单、券模板。
 4. **验证登录态**：`GET /users/me`、`GET /addresses`、`GET /users/me/coupons`。
 5. **验证试算**：`POST /orders/price-preview`，对比小计/打包费/券/合计。
-6. **验证下单支付**：`POST /orders` → `POST /payments/wechat/prepay` → `POST /payments/wechat/notify`，再查订单应为 `making`，商品库存减少，积分增加。
-7. **验证取消**：另建一单不支付，取消后券应释放；已支付订单取消后库存/积分回滚。
+6. **验证下单支付**：`POST /orders` 后商品库存应立即减少（预占）；再 `POST /payments/wechat/prepay` → `notify`，订单应为 `making`、积分增加，库存不再二次减少。
+7. **验证取消**：未支付订单取消后库存/券应释放；已支付订单取消后库存/积分回滚，且重复取消只释放一次。
 8. **验证地址**：新增/设默认/删除；删除后回看历史配送单，地址快照仍在。
 9. **跑前端页面**：H5 或微信开发者工具，按「首页 → 点单 → 详情 → 结算 → 支付 → 订单 → 我的」走一遍。
 10. **切 MySQL**：导入脚本、改 `.env`、重启后重复第 2~9 步，确认不是 SQLite 特例。
@@ -666,8 +671,8 @@ curl -s "$BASE/orders?state=pending_pay" -H "Authorization: Bearer $TOKEN"
 1. **支付是模拟的**：`prepay` 返回假参数，`notify` 不验签、直接置成功。真实接入时前端改 `uni.requestPayment`，后端补 APIv3 验签与解密。
 2. **微信登录是模拟的**：`code=demo` 固定映射到 1001；带 `mock_id` 时按设备 ID 哈希生成稳定 openid；都没传才退回按 code 哈希。真实接入需 `code2session`。
 3. **demo 会员共享**：点「演示会员登录」的设备共用 1001 的订单、积分与券，多人同时演示会互相影响。需要隔离时改用「微信一键登录」生成独立账号。
-4. **待支付订单不会自动超时取消**：后端的 15 分钟超时策略未实现定时任务；券会一直锁定，需手动取消订单释放。演示完请取消未支付订单。
-5. **库存在支付时扣减**：创建订单只校验库存，支付回调才扣库存；高并发下真实项目需要更严格的锁与超时释放。
+4. **待支付订单 15 分钟自动取消**：后端后台线程默认每 60 秒扫描一次，释放预占库存与券；可用 `ORDER_EXPIRY_MINUTES` 调整。演示时也可手动取消。
+5. **库存在创建订单时预占**：支付不再重复扣库存；取消/超时会释放。并发下使用条件 UPDATE，最后 1 杯不会被两笔订单同时预占。
 6. **图片域名**：12 张商品图已随小程序打包，`resolveImage()` 会优先使用本地图，因此不再依赖后端图床；上传头像仍以 HTTP 地址保存，微信开发者工具/真机需 HTTPS 才能显示，开发期刷新后会回退到本地默认头像。真机调用接口时 `BASE_URL` 与 `API_BASE_URL` 仍需同步改成电脑局域网 IP。
 7. **搜索入口**：后端 `GET /menu/products?keyword=` 已支持，当前点单页搜索按钮仍是占位交互，未接 UI。
 
@@ -792,13 +797,13 @@ curl -s "$BASE/orders?state=pending_pay" -H "Authorization: Bearer $TOKEN"
 
 - `app/services/ai_agent/`：`state.py`（LangGraph 状态）、`prompt.py`（注入当前门店、菜单、库存、冰/糖选项与业务规则）、`tools.py`（`query_stock`、`create_order`、`query_my_orders`）、`graph.py`（LLM ↔ 工具 ReAct 循环）、`service.py`（按用户内存会话 + 并发锁）。
 - `app/api/v1/ai.py`：`POST /ai/chat`、`GET /ai/history`、`DELETE /ai/session`，全部要求 Bearer 登录；用户身份只用 token，不接收前端 `user_id`。
-- 下单复用 `order_service.create_order()`：固定自取、单款、金额/库存/门店校验全部走后端；订单进入 `pending_pay`，不自动支付。相同商品/规格/数量 30 秒内重复调用会返回原订单，防止模型重复下单。
+- 下单复用 `order_service.create_order()`：固定自取、单款、金额/库存/门店校验全部走后端；订单进入 `pending_pay`，不自动支付。相同门店/桌号/商品/规格/数量 30 秒内重复调用会返回原订单，防止模型重复下单；用户消息默认 2 秒冷却。
 - 模型：DeepSeek Chat（OpenAI 兼容），`.env` 配 `DEEPSEEK_API_KEY`；可选 `LLM_BASE_URL`、`LLM_MODEL`。未配置时 `/ai/chat` 返回 9000/503。
 - 依赖：`langchain`、`langgraph`、`langchain-openai` 已写入 `requirements.txt`，安装在 `fastapi_demo/.venv`。
 
 **前端**：
 
 - `pages/ai/index.vue`：奶油底对话页，含气泡、加载圆点、失败重发、订单卡片、安全区输入栏；`common/api/ai.js` 封装接口，AI 请求超时 60 秒。
-- 入口：首页白色大板「AI 点单」行 + 我的页「智能点单助手」。
+- 入口：首页/点单页右下角悬浮猫娘 GIF；小眼睛收起为小 AI 气泡。
 - 已验证：真实 DeepSeek 对话（推荐/下单/订单进度）、库存售罄拦截、非法冰度拦截、未知商品拦截、多款匹配反问、会话历史与清空、SFC/JS 编译。
 - **尚未在微信开发者工具中人工点按验证**：聊天气泡滚动、键盘顶起、订单卡片跳转需在 HBuilderX / 微信开发者工具里再走一遍。

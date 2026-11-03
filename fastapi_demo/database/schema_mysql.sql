@@ -55,6 +55,7 @@ CREATE TABLE users (
     avatar_path VARCHAR(255) NOT NULL DEFAULT '/static/images/avatar.jpg',
     level_code  VARCHAR(8) NOT NULL DEFAULT 'V1',
     points      INT NOT NULL DEFAULT 0,
+    growth      INT NOT NULL DEFAULT 0,
     balance     DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
     created_at  BIGINT NOT NULL,
     PRIMARY KEY (id),
@@ -243,6 +244,7 @@ CREATE TABLE orders (
     out_trade_no       VARCHAR(32) NOT NULL,
     user_id            INT NOT NULL,
     state              VARCHAR(16) NOT NULL DEFAULT 'pending_pay',
+    stock_reserved     TINYINT(1) NOT NULL DEFAULT 0,
     store_id           INT NOT NULL,
     store_name         VARCHAR(64) NOT NULL,
     mode               VARCHAR(16) NOT NULL,
@@ -406,9 +408,9 @@ INSERT IGNORE INTO member_levels (code, name, min_points, sort_order) VALUES
     ('V4', '黑金猫评员', 2000, 4);
 
 INSERT IGNORE INTO users
-    (id, openid, nickname, avatar_path, level_code, points, balance, created_at)
+    (id, openid, nickname, avatar_path, level_code, points, growth, balance, created_at)
 VALUES
-    (1001, 'mock-openid-demo', '猫友1234', '/static/images/avatar.jpg', 'V2', 320, 8.50, 1788220800000);
+    (1001, 'mock-openid-demo', '猫友1234', '/static/images/avatar.jpg', 'V2', 320, 320, 8.50, 1788220800000);
 
 INSERT IGNORE INTO product_lines (id, name, tag, en, description, color, bg, sort_order) VALUES
     ('buchi',    '布奇·醇厚系列', '醇厚', 'Buchi''s Rich Collection',  '厚乳打底，浓郁治愈',   '#8B5E3C', '#F3EAE0', 1),

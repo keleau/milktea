@@ -17,9 +17,11 @@ def level_text(level: MemberLevel | None, fallback: str = "") -> str:
 
 def change_points(db: Session, user: User, delta: int, title: str, log_type: str) -> int:
     user.points = max(0, user.points + delta)
+    if delta > 0:
+        user.growth = (user.growth or 0) + delta
     chosen = None
     for level in levels(db):
-        if user.points >= level.min_points:
+        if user.growth >= level.min_points:
             chosen = level
     if chosen is not None:
         user.level = chosen

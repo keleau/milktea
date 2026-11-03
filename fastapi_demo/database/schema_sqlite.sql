@@ -47,6 +47,7 @@ CREATE TABLE users (
     avatar_path TEXT    NOT NULL DEFAULT '/static/images/avatar.jpg',
     level_code  TEXT    NOT NULL DEFAULT 'V1',
     points      INTEGER NOT NULL DEFAULT 0 CHECK (points >= 0),
+    growth      INTEGER NOT NULL DEFAULT 0 CHECK (growth >= 0),
     balance     NUMERIC(10, 2) NOT NULL DEFAULT 0 CHECK (balance >= 0),
     created_at  INTEGER NOT NULL,
     CONSTRAINT fk_users_level FOREIGN KEY (level_code) REFERENCES member_levels (code)
@@ -196,6 +197,7 @@ CREATE TABLE orders (
     user_id           INTEGER NOT NULL,
     state             TEXT    NOT NULL DEFAULT 'pending_pay'
                       CHECK (state IN ('pending_pay', 'making', 'completed', 'cancelled')),
+    stock_reserved    INTEGER NOT NULL DEFAULT 0 CHECK (stock_reserved IN (0, 1)),
     store_id          INTEGER NOT NULL,
     store_name        TEXT    NOT NULL,
     mode              TEXT    NOT NULL CHECK (mode IN ('pickup', 'delivery')),
@@ -330,9 +332,9 @@ INSERT OR IGNORE INTO member_levels (code, name, min_points, sort_order) VALUES
 
 -- 用户（演示账号）
 INSERT OR IGNORE INTO users
-    (id, openid, nickname, avatar_path, level_code, points, balance, created_at)
+    (id, openid, nickname, avatar_path, level_code, points, growth, balance, created_at)
 VALUES
-    (1001, 'mock-openid-demo', '猫友1234', '/static/images/avatar.jpg', 'V2', 320, 8.50, 1788220800000);
+    (1001, 'mock-openid-demo', '猫友1234', '/static/images/avatar.jpg', 'V2', 320, 320, 8.50, 1788220800000);
 
 -- 产品线
 INSERT OR IGNORE INTO product_lines (id, name, tag, en, description, color, bg, sort_order) VALUES

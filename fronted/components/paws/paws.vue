@@ -26,7 +26,7 @@ defineProps({
 	width: 0.62em;
 	height: 0.5em;
 	background: currentColor;
-	color: #e9dfd3;
+	color: #e8ddcf;
 	border-radius: 50% 50% 45% 45%;
 }
 .paw::before {
@@ -53,6 +53,6 @@ defineProps({
 }
 .paw.on {
 	/* 评分用弱化焦糖色，不与价格/热项的强调橘抢焦点 */
-	color: #c9a886;
+	color: #b79a6b;
 }
 </style>

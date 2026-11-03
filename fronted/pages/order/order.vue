@@ -207,6 +207,10 @@ const payCurrentOrder = async () => {
 		uni.showToast({ title: '支付成功', icon: 'success' })
 	} catch (error) {
 		showError(error)
+		// 已在其他端支付 / 已取消时，当前页状态是旧的，重新拉一次订单
+		if (error.code === 4002 || error.code === 4003) {
+			await loadOrder()
+		}
 	} finally {
 		paying.value = false
 	}

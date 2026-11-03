@@ -63,17 +63,6 @@
 				</view>
 			</view>
 
-			<view class="scan-row" hover-class="hv" @tap="toAi">
-				<view class="scan-icon">
-					<uni-icons type="chat" size="22" color="#8B5E3C"></uni-icons>
-				</view>
-				<view class="scan-body">
-					<text class="scan-title">AI点单</text>
-					<text class="scan-sub">说出想喝什么，智能助手帮你查库存、下单</text>
-				</view>
-				<text class="scan-arrow">›</text>
-			</view>
-
 			<view class="scan-row" hover-class="hv" @tap="scanTable">
 				<view class="scan-icon">
 					<uni-icons type="scan" size="22" color="#8B5E3C"></uni-icons>
@@ -150,12 +139,15 @@
 		<view class="footer-slogan anim d2">
 			<text>— 四猫茶学园 · 今天的奶茶，由猫评分 —</text>
 		</view>
+
+		<ai-float />
 	</view>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
+import AiFloat from '@/components/ai-float/ai-float.vue'
 import { getLines, getProducts } from '@/common/api/catalog'
 import { resolveTable } from '@/common/api/tables'
 import { ensureLogin, fetchMe } from '@/common/api/auth'
@@ -196,8 +188,9 @@ const loadCatalog = async () => {
 		])
 		lines.value = lineList
 		const drinks = (page.items || []).map(toDrink)
-		const hot = drinks.filter(d => d.hot)
-		recommendations.value = (hot.length ? hot : drinks).slice(0, 3)
+		const inStock = drinks.filter(d => d.stock > 0)
+		const hot = inStock.filter(d => d.hot)
+		recommendations.value = (hot.length ? hot : inStock).slice(0, 3)
 	} catch (error) {
 		console.warn('[home] 推荐加载失败', error)
 	}
@@ -255,9 +248,6 @@ const goBanner = (b) => {
 const toMenu = () => {
 	uni.switchTab({ url: '/pages/menu/index' })
 }
-const toAi = () => {
-	uni.navigateTo({ url: '/pages/ai/index' })
-}
 const scanTable = async () => {
 	let scene = ''
 	try {
@@ -295,7 +285,7 @@ page {
 }
 .page {
 	min-height: 100vh;
-	padding-bottom: 48rpx;
+	padding-bottom: 300rpx;
 }
 .hv {
 	opacity: 0.85;

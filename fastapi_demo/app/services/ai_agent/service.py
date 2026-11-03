@@ -1,5 +1,6 @@
 import logging
 import threading
+import time
 
 from langchain_core.messages import AIMessage, HumanMessage
 from sqlalchemy import select
@@ -24,6 +25,7 @@ _SESSION_TTL_MS = 2 * 3600 * 1000
 _state_lock = threading.RLock()
 _sessions: dict[int, dict] = {}
 _user_locks: dict[int, threading.Lock] = {}
+_last_request: dict[int, float] = {}
 
 
 def _get_session(user_id: int) -> dict:
@@ -108,11 +110,10 @@ def _message_text(message) -> str:
 
 def _extract_answer(result: dict) -> str:
     messages = result.get("messages") or []
-    if messages:
-        text = _message_text(messages[-1])
-        if text:
-            return text
+    # 只看本轮（最后一条 Human 之后）的 AI 回复，避免模型返回空内容时把历史回复当成本轮回答
     for message in reversed(messages):
+        if isinstance(message, HumanMessage):
+            break
         if isinstance(message, AIMessage):
             text = _message_text(message)
             if text:
@@ -139,6 +140,13 @@ def chat(
     table_no = (table_no or "").strip().upper() or None
 
     with _user_lock(user.id):
+        now = time.monotonic()
+        with _state_lock:
+            last = _last_request.get(user.id, 0.0)
+            if now - last < max(0.0, settings.ai_min_interval_seconds):
+                raise BizError(9000, "消息发得太快啦，请稍后再试", 429)
+            _last_request[user.id] = now
+
         history = get_history(user.id)
         context: dict = {}
         tools = build_tools(db, user, store.id, context, table_no)

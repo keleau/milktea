@@ -73,10 +73,6 @@
 
 		<!-- 功能列表 -->
 		<view class="panel">
-			<view class="cell" hover-class="cell-hv" @tap="toAi">
-				<text class="cell-name">智能点单助手</text>
-				<text class="cell-arrow">›</text>
-			</view>
 			<view class="cell" hover-class="cell-hv" @tap="toCoupons">
 				<text class="cell-name">优惠券</text>
 				<text class="cell-extra">{{ user.coupon_count }} 张</text>
@@ -281,9 +277,6 @@ const toAddress = () => {
 }
 const toStaff = () => {
 	uni.navigateTo({ url: '/pages/staff/verify' })
-}
-const toAi = () => {
-	uni.navigateTo({ url: '/pages/ai/index' })
 }
 const comingSoon = () => {
 	uni.showToast({ title: '敬请期待', icon: 'none' })

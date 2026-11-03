@@ -46,7 +46,7 @@
 			<text class="tb-tag">堂食</text>
 			<text class="tbb-name">{{ tableCtx.storeName }}</text>
 			<text class="tbb-no">{{ tableCtx.tableNo }} 桌</text>
-			<text class="tbb-clear" hover-class="hv" @tap="dropTable">取消</text>
+			<view class="tbb-clear" hover-class="hv" aria-label="退出堂食" @tap.stop="dropTable">退出</view>
 		</view>
 
 		<!-- ⑤ 页签 -->
@@ -262,7 +262,7 @@
 					<view class="sp-count">
 						<view class="sc-btn" hover-class="hv" @tap="spCount > 1 ? spCount-- : ''">－</view>
 						<text class="sc-num">{{ spCount }}</text>
-						<view class="sc-btn sc-add" hover-class="hv" @tap="spCount++">＋</view>
+						<view class="sc-btn sc-add" :class="{ dis: spCount >= spMax }" hover-class="hv" @tap="spCount < spMax && spCount++">＋</view>
 					</view>
 				</view>
 				<text class="sp-sum">【{{ spSpecText }}】</text>
@@ -272,6 +272,8 @@
 				</view>
 			</view>
 		</view>
+
+		<ai-float v-if="!cartOpen && !specDrink && !storePick" :raised="cartCount > 0" />
 	</view>
 </template>
 
@@ -281,6 +283,7 @@ import { onLoad, onShow } from '@dcloudio/uni-app'
 import ProductCard from '@/components/menu/product-card.vue'
 import CouponTicket from '@/components/menu/coupon-ticket.vue'
 import CategoryRail from '@/components/menu/category-rail.vue'
+import AiFloat from '@/components/ai-float/ai-float.vue'
 import { getLines, getOptions, getProducts, getStores } from '@/common/api/catalog'
 import { claimCoupon, getTemplates } from '@/common/api/coupons'
 import { resolveTable } from '@/common/api/tables'
@@ -288,7 +291,7 @@ import { ensureLogin } from '@/common/api/auth'
 import { showError } from '@/common/api/request'
 import { toDrink } from '@/common/api/adapters'
 import { getStoreId, saveStoreId } from '@/common/api/token'
-import { setCheckoutDraft } from '@/common/store/session'
+import { setCheckoutDraft, getCheckoutDraft } from '@/common/store/session'
 import { getTableContext, saveTableContext, clearTableContext } from '@/common/store/table'
 import { scanCode, isScanCancel } from '@/common/utils/scan'
 
@@ -318,6 +321,8 @@ const mode = ref('自取')
 const tableCtx = ref(getTableContext())
 // 已处理过的启动 scene：避免 onLoad/onShow 重复解析同一张桌码
 let lastEntryScene = ''
+// 用户主动退出的 scene：onShow 读取启动参数时不能把同一张桌码重新贴回来
+let dismissedEntryScene = ''
 const tabId = ref('classic')
 const sideId = ref('coupon')
 const scrollInto = ref('')
@@ -362,17 +367,31 @@ const pickStore = (st) => {
 const setMode = (next) => {
 	if (next === mode.value) return
 	if (next === '外送' && tableCtx.value) {
-		uni.showToast({ title: '堂食订单仅支持自取，如需外送请先取消堂食', icon: 'none' })
+		dropTable()
+		mode.value = next
 		return
 	}
 	mode.value = next
 }
 
 const dropTable = () => {
+	const entryScene = normalizeScene(readEntryScene())
+	if (entryScene) dismissedEntryScene = entryScene
 	tableCtx.value = null
 	lastEntryScene = ''
 	clearTableContext()
-	uni.showToast({ title: '已取消堂食', icon: 'none' })
+	uni.showToast({ title: '已退出堂食', icon: 'none' })
+}
+
+const normalizeScene = (raw) => {
+	if (!raw) return ''
+	let scene = String(raw).trim()
+	try {
+		scene = decodeURIComponent(scene).trim()
+	} catch (error) {
+		// scene 含非法转义时按原文处理
+	}
+	return scene
 }
 
 /** 桌号上下文生效：门店跟着切到桌码所属门店 */
@@ -390,15 +409,10 @@ const applyTable = (ctx) => {
 
 /** 微信扫码直达：scene 形如 MILKTEA%3A1%3AA01，解析后自动绑定桌号 */
 const applyEntryScene = async (raw) => {
-	if (!raw) return
-	let scene = String(raw).trim()
-	try {
-		scene = decodeURIComponent(scene).trim()
-	} catch (error) {
-		// scene 含非法转义时按原文处理
-	}
-	if (!scene || scene === lastEntryScene) return
+	const scene = normalizeScene(raw)
+	if (!scene || scene === lastEntryScene || scene === dismissedEntryScene) return
 	lastEntryScene = scene
+	dismissedEntryScene = ''
 
 	try {
 		const table = await resolveTable(scene)
@@ -609,6 +623,14 @@ onMounted(async () => {
 })
 // 从首页扫码回来时，onShow 同步最新的桌号上下文
 onShow(() => {
+	// 从结算页返回：下单成功（草稿已被清空）才清购物车；用户只是返回则保留
+	if (cartCheckoutPending) {
+		cartCheckoutPending = false
+		if (!getCheckoutDraft() && cart.value.length) {
+			cart.value = []
+			cartOpen.value = false
+		}
+	}
 	// 热启动：小程序在后台被扫码唤起时，新桌码只在启动参数里
 	applyEntryScene(readEntryScene())
 	const ctx = getTableContext()
@@ -641,6 +663,10 @@ const spTops = ref([])
 const spCount = ref(1)
 
 const openSpec = (dk) => {
+	if (!dk || dk.stock <= 0) {
+		uni.showToast({ title: '该饮品已售罄', icon: 'none' })
+		return
+	}
 	specDrink.value = dk
 	spIce.value = iceOpts.value.includes('正常冰') ? '正常冰' : (iceOpts.value[0] || '正常冰')
 	spSugar.value = sugarOpts.value.includes('七分糖') ? '七分糖' : (sugarOpts.value[0] || '七分糖')
@@ -655,6 +681,7 @@ const toggleTop = (tp) => {
 	else spTops.value.push(tp)
 }
 const spTopTotal = computed(() => spTops.value.reduce((s, t) => s + t.price, 0))
+const spMax = computed(() => Math.max(1, Number(specDrink.value?.stock || 0)))
 const spTotal = computed(() => (specDrink.value ? (specDrink.value.price + spTopTotal.value) * spCount.value : 0))
 const spOrigTotal = computed(() => (specDrink.value && specDrink.value.orig ? specDrink.value.orig * spCount.value : 0))
 const spSpecText = computed(() => [spIce.value, spSugar.value].concat(spTops.value.map(t => t.name)).join('·'))
@@ -662,6 +689,8 @@ const spSpecText = computed(() => [spIce.value, spSugar.value].concat(spTops.val
 // ===== 购物车 =====
 const cart = ref([])
 const cartOpen = ref(false)
+// 购物车是否已带到结算页；订单创建成功后草稿会被清空，菜单 onShow 再清空购物车
+let cartCheckoutPending = false
 const toppingTotal = (it) => (it.toppings || []).reduce((s, t) => s + Number(t.price || 0), 0)
 const itemTotal = (it) => Number(((it.product.price + toppingTotal(it)) * it.count).toFixed(2))
 const cartCount = computed(() => cart.value.reduce((s, it) => s + it.count, 0))
@@ -674,6 +703,10 @@ const cartSave = computed(() => Number(cart.value.reduce(
 const orderMode = () => (mode.value === '外送' ? 'delivery' : 'pickup')
 
 const addCart = () => {
+	if (!specDrink.value || specDrink.value.stock <= 0) {
+		uni.showToast({ title: '该饮品已售罄', icon: 'none' })
+		return
+	}
 	cart.value.push({
 		product: specDrink.value,
 		ice: spIce.value,
@@ -685,6 +718,10 @@ const addCart = () => {
 	uni.showToast({ title: '已加入购物车', icon: 'none' })
 }
 const buyNow = () => {
+	if (!specDrink.value || specDrink.value.stock <= 0) {
+		uni.showToast({ title: '该饮品已售罄', icon: 'none' })
+		return
+	}
 	setCheckoutDraft({
 		storeId: selStoreId.value,
 		mode: orderMode(),
@@ -720,7 +757,7 @@ const checkout = () => {
 			count: it.count
 		}))
 	})
-	cart.value = []
+	cartCheckoutPending = true
 	cartOpen.value = false
 	uni.navigateTo({ url: '/pages/checkout/index' })
 }
@@ -885,8 +922,13 @@ const claimAll = async () => {
 .tbb-clear {
 	flex-shrink: 0;
 	margin-left: 16rpx;
+	height: 48rpx;
+	line-height: 48rpx;
+	padding: 0 20rpx;
+	border-radius: 999rpx;
+	background: #ffffff;
 	font-size: 22rpx;
-	color: #b7ab9e;
+	color: #b06a4a;
 }
 
 /* ② 门店行（紧凑） */
@@ -1671,6 +1713,9 @@ const claimAll = async () => {
 	background: #e8833a;
 	color: #ffffff;
 }
+.sc-add.dis {
+	opacity: 0.35;
+}
 .sc-num {
 	min-width: 64rpx;
 	text-align: center;
@@ -1714,9 +1759,9 @@ const claimAll = async () => {
 	font-weight: bold;
 }
 .list-pad {
-	height: 60rpx;
+	height: 300rpx;
 }
 .list-pad.withCart {
-	height: 250rpx;
+	height: 450rpx;
 }
 </style>

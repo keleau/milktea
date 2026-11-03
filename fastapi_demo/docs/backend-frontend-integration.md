@@ -87,10 +87,13 @@ python database/build_table_qrcodes.py
 python -m uvicorn main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-> 已有库升级到桌码版本时**不要重建**（会清空用户和订单），只补列：
-> `ALTER TABLE orders ADD COLUMN table_no TEXT;`（MySQL：`VARCHAR(8) NULL`）。
+> 已有库升级时**不要重建**（会清空用户和订单），只补列：
+> `ALTER TABLE orders ADD COLUMN table_no TEXT;`（MySQL：`VARCHAR(8) NULL`）
+> `ALTER TABLE orders ADD COLUMN stock_reserved INTEGER NOT NULL DEFAULT 0;`（MySQL：`TINYINT(1) NOT NULL DEFAULT 0`）
+> `ALTER TABLE users ADD COLUMN growth INTEGER NOT NULL DEFAULT 0;`，再 `UPDATE users SET growth = points;`（MySQL：`INT`）
 > 核销口令在 `.env` 设置 `STAFF_PIN`（演示用 6 位数字）；未配置时核销接口返回 9000/503，修改后需重启服务。
 > AI 点单在 `.env` 设置 `DEEPSEEK_API_KEY`；未配置时 `/ai/chat` 返回 9000/503，修改后需重启服务。
+> 待支付超时自动取消默认 15 分钟，可用 `ORDER_EXPIRY_MINUTES`、`ORDER_EXPIRY_INTERVAL_SECONDS` 调整。
 
 自检地址：
 
@@ -181,7 +184,7 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 | 1003 | 403 | 无权限 | 操作他人订单/地址 |
 | 1004 | 404 | 资源不存在 | 商品/门店/订单/地址不存在 |
 | 2001 | 400 | 商品已下架 | 支付时商品被下架 |
-| 2002 | 409 | 库存不足 | 试算/支付时库存不够 |
+| 2002 | 409 | 库存不足 | 创建订单预占库存时不够 |
 | 2003 | 409 | 商品在该门店售罄 | 预留 |
 | 2004 | 409 | 门店已打烊 | `store.status == closed` |
 | 3001 | 400 | 券不可用 / 门槛不足 | 金额 < `min_amount` |
@@ -369,7 +372,7 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
   - `order_item_toppings`（小料快照）
   - `idempotency_keys`（同用户同 key 10 分钟内返回首单）
   - 选中券 `user_coupons.locked_by = out_trade_no`
-- 商品库存此时**不扣**，支付成功才扣。
+- 商品库存在**创建订单时**用条件 UPDATE 预占，不存在“先查到支付时再扣”的窗口；库存不足直接 2002。
 - 金额全部由后端重算，前端传的金额不参与。
 
 `Idempotency-Key` 细节：
@@ -385,14 +388,14 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
    - 已支付 → 4002；已取消 → 4003。
 2. `POST /payments/wechat/notify` `{out_trade_no, transaction_id, result_code:"SUCCESS"}`（公开）
    - 演示不验签；`result_code != SUCCESS` → 5002。
-   - `pay_order()` 用 `SELECT ... FOR UPDATE` 锁订单：
+   - `pay_order()` 用条件 UPDATE 抢占 `pending_pay → making`：
      - 已 making/completed：直接返回（幂等）。
      - cancelled：4003。
-     - 商品下架 2001；库存不足 2002。
-     - 券状态校验；被其他订单锁 3004；已用/过期 3002。
-     - 扣库存、券置 used、`locked_by` 清空。
+     - 商品下架 2001；旧订单（`stock_reserved=0`）才在支付时条件扣库存。
+     - 券状态校验；被其他订单锁 3004；已用/过期 3002；条件更新为 used。
      - 积分 `int(total)` 入账，写 `points_logs`。
-     - 生成 5 位 `pick_code`，写 `pay_time` / `transaction_id`，状态 `pending_pay → making`。
+     - 生成 5 位 `pick_code`，写 `pay_time` / `transaction_id`。
+   - 新订单在创建时已预占库存，支付不会重复扣库存。
 3. `GET /payments/{out_trade_no}`（登录）查询 `paid/state/pay_time`。
 
 > 真实微信支付：`prepay` 换成 APIv3 统一下单，`notify` 增加验签 + 解密，前端改用 `uni.requestPayment`。订单事务逻辑可以复用。
@@ -405,8 +408,8 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 | 角标 | `GET /orders/counts` | 按状态分组计数 |
 | 详情 | `GET /orders/{no}` | 非本人 1003；不存在 1004；含 `table_no` |
 | 取餐二维码 | `GET /orders/{no}/pickup-qr` | 仅本人；`making/completed` 且有 `pick_code`，否则 4001；返回 `{content: "PICK:单号:取餐码", image: "data:image/png;base64,..."}` |
-| 取消 | `POST /orders/{no}/cancel` | 仅 `pending_pay/making`；making 回补库存、退积分 |
-| 完成 | `POST /orders/{no}/complete` | 仅 `making` → `completed`，写 `finish_time` |
+| 取消 | `POST /orders/{no}/cancel` | 仅 `pending_pay/making`；两者都会释放预占库存，`making` 另退积分、释放券 |
+| 完成 | `POST /orders/{no}/complete` | 仅 `making` → `completed`，条件更新，写 `finish_time` |
 | 评价 | `POST /orders/{no}/review` | 仅 `completed` 且未评价；写 review 三字段 |
 | 再来一单 | `POST /orders/{no}/repeat` | 返回门店/方式/地址/items 草稿；不创建订单 |
 
@@ -419,7 +422,7 @@ pending_pay ──支付回调──> making ──complete──> completed
 ```
 
 > `cancelled` 的支付会被拒绝（4003）；`completed` 不能取消（4001）。
-> 后端未实现「15 分钟未支付自动取消」定时任务，演示时需手动取消。
+> 后台线程每 60 秒扫描一次，15 分钟未支付订单自动 `cancelled`，释放预占库存与券；可用 `ORDER_EXPIRY_MINUTES` / `ORDER_EXPIRY_INTERVAL_SECONDS` 调整。
 
 ### 5.6 我的 / 地址 / 券包
 
@@ -489,7 +492,8 @@ pending_pay ──支付回调──> making ──complete──> completed
 - 扫桌码进入时 `table_no` 会写入订单（复用 `create_order` 的桌号校验）；桌号不属于该门店返回 1004。
 - 冰度/糖度必须来自 `ICE_OPTIONS` / `SUGAR_OPTIONS`，用户未说明时模型必须反问。
 - 库存不足、售罄、门店打烊、商品下架、多款匹配、未知小料都会返回明确原因，不创建订单。
-- 相同用户 + 商品 + 规格 + 数量在 30 秒内重复调用 `create_order` 会返回原订单，避免模型重复建单。
+- 相同用户 + 门店 + 桌号 + 商品 + 规格 + 数量在 30 秒内重复调用 `create_order` 会返回原订单，避免模型重复建单。
+- 同一用户 AI 消息默认 2 秒冷却（`AI_MIN_INTERVAL_SECONDS`），过快返回 9000/429。
 - AI 不自动支付；订单创建后仍是 `pending_pay`，由用户在订单详情页支付。
 
 > 演示边界：会话不落库，重启即清空；没有多轮摘要，超过 20 条只保留最近消息。生产应把会话、工具审计与限流放到 Redis / 数据库，并增加敏感词与越权防护。
@@ -572,6 +576,9 @@ BASE_URL=http://127.0.0.1:8000
 # DEEPSEEK_API_KEY=sk-... # AI 点单助手，只放后端
 # LLM_BASE_URL=https://api.deepseek.com/v1
 # LLM_MODEL=deepseek-chat
+# AI_MIN_INTERVAL_SECONDS=2
+# ORDER_EXPIRY_MINUTES=15
+# ORDER_EXPIRY_INTERVAL_SECONDS=60
 ```
 
 4. 重启 uvicorn。日志无建表警告、`/api/v1/menu/products` 有数据即成功。
@@ -593,7 +600,7 @@ BASE_URL=http://127.0.0.1:8000
 | `user_coupons` | 用户券实例、锁定、核销 |
 | `addresses` | 收货地址 |
 | `favorites` | 收藏 |
-| `orders` | 订单主表、状态、金额、地址快照、评价 |
+| `orders` | 订单主表、状态、金额、地址快照、评价、库存预占标记 |
 | `order_items` | 订单商品快照 |
 | `order_item_toppings` | 订单小料快照 |
 | `points_logs` | 积分流水 |
@@ -636,13 +643,15 @@ orders 1─1 idempotency_keys.order_no (逻辑关联)
 ```
 BEGIN
   幂等键命中？ → 返回原订单
-  quote() 重算 + 校验库存/券
+  quote() 重算 + 校验券
+  UPDATE products.stock = stock - n WHERE stock >= n   -- 条件预占
+  UPDATE user_coupons SET locked_by=... WHERE 未使用且未锁定
   INSERT orders / order_items / order_item_toppings
-  UPDATE user_coupons.locked_by
   INSERT idempotency_keys
 COMMIT
 ```
 
+- 任一库存条件更新失败会整体回滚（库存、券、订单都不落库）。
 - `db.add(order)` 后先 `db.flush()` 再插幂等键，保证 `idempotency_keys.order_no` 外键能找到订单（这是之前修过的 FK bug）。
 - 创建失败整体回滚，不锁券、不写幂等键。
 
@@ -650,29 +659,32 @@ COMMIT
 
 ```
 BEGIN
-  SELECT orders ... FOR UPDATE
-  已支付？ → 直接返回（幂等）
-  校验商品/库存/券
-  UPDATE products.stock
-  UPDATE user_coupons.status='used', locked_by=NULL
+  条件 UPDATE orders ... WHERE state='pending_pay' → making
+  已支付？ → 回滚并返回当前订单（幂等）
+  cancelled？ → 4003
+  旧订单（stock_reserved=0）才条件扣库存
+  UPDATE user_coupons status='used', locked_by=NULL（条件更新）
   UPDATE users.points, INSERT points_logs
-  UPDATE orders SET state='making', pick_code, pay_time, transaction_id
+  写 pick_code / pay_time / transaction_id
 COMMIT
 ```
 
-- SQLite 的 `FOR UPDATE` 会被忽略，但演示单进程够用；MySQL 生效。
-- 重复 notify 不重复扣库存/加积分。
+- 订单状态用条件 UPDATE 抢占，SQLite 不需要 `FOR UPDATE` 也具备并发保护；MySQL 同样生效。
+- 重复 notify 不会重复扣库存/加积分，也不会重复退款。
+- 新订单创建时已预占库存，支付只做状态与券/积分。
 
 ### 8.3 取消订单
 
-- `pending_pay`：释放券（`locked_by=NULL`），不改库存/积分。
-- `making`：释放券 + 回补库存 + 扣回 `earning_points` + 写退款流水。
+- `pending_pay`：条件状态更新为 `cancelled`，释放预占库存与券（`locked_by=NULL`），不改积分。
+- `making`：同上，另扣回 `earning_points` + 写退款流水。
 - `completed/cancelled`：4001。
+- 超时自动取消复用同一逻辑：条件抢占状态后再释放库存/券，不会与支付/取消并发重复执行。
 
 ### 8.4 积分
 
 - 支付成功：`int(total)`，例如实付 32.8 → +32。
-- 等级由累计积分决定：V1 0 / V2 200 / V3 800 / V4 2000。
+- `points` 是可用积分，`growth` 是累计成长值；消费积分只扣 `points`，不降低 `growth` 和会员等级。
+- 等级按 `growth` 决定：V1 0 / V2 200 / V3 800 / V4 2000。
 - 取消制作中订单扣回本单积分；积分不会低于 0（`change_points` 夹紧）。
 
 ---
@@ -728,7 +740,7 @@ curl -s -X POST http://127.0.0.1:8000/api/v1/payments/wechat/notify \
 - 菜单接口返回 `http://127.0.0.1:8000/static/images/...`，微信端由 `resolveImage()` 映射成本地商品图。
 - 结算金额与试算完全一致；自取/外送切换后 `pack_fee` 变化。
 - 支付成功后订单变「制作中」、出现取餐码；`orders`、`products.stock`、`user_coupons`、`users.points`、`points_logs` 同时变化。
-- 取消待支付订单后券解锁；取消制作中订单后库存/积分回滚。
+- 取消待支付订单后库存/券释放；取消制作中订单后库存/积分回滚。
 - 地址删除后历史订单地址仍显示姓名/电话/详址。
 
 ---
@@ -757,7 +769,7 @@ curl -s -X POST http://127.0.0.1:8000/api/v1/payments/wechat/notify \
 | 核销返回 4001 | 订单未支付 / 已核销 / 已取消，或取餐码重复 | 让顾客打开订单详情出示二维码；刷新订单状态 |
 | AI 回复 9000/503 | `.env` 未设置 `DEEPSEEK_API_KEY`，或模型网络/余额异常 | 配置密钥并重启；看后端日志里的 `AI 对话调用失败` |
 | AI 不查库存直接回答 | 模型未按规则调用工具 | 检查系统提示词；换更稳定的模型；工具失败会返回原因供模型继续追问 |
-| AI 重复下单 | 模型在多个回合重复调用工具 | 后端 30 秒内相同商品/规格/数量会返回原订单；仍建议在订单列表核对 |
+| AI 重复下单 | 模型在多个回合重复调用工具 | 后端 30 秒内相同门店/桌号/商品/规格/数量会返回原订单；仍建议在订单列表核对 |
 | AI 历史消失 | 服务重启或超过 2 小时 | 演示预期行为；生产应持久化会话 |
 
 ---
@@ -772,7 +784,7 @@ curl -s -X POST http://127.0.0.1:8000/api/v1/payments/wechat/notify \
 - `STAFF_PIN` 只放后端 `.env`；店员核销接口无登录态，靠共享口令，演示够用，生产必须换成店员账号 + 角色权限。
 - CORS `*` 仅方便联调；生产收紧到具体域名。
 - 上传头像只校验 MIME 与大小，演示够用；生产还应做图片重编码、病毒扫描、对象存储。
-- 订单超时取消、券锁定超时释放未实现定时任务；演示结束请手动取消未支付订单。
+- 订单超时取消、券锁定释放现在由后端后台线程处理（默认 15 分钟、60 秒扫描一次）；多进程部署时每个进程都会扫描，但条件状态更新保证只执行一次。
 - AI 点单只允许登录用户自取单款下单，工具层重新校验库存/门店/规格；但提示词无法完全阻止模型说错话，生产需增加输出审核、限流与工具调用审计。
 - `DEEPSEEK_API_KEY` 只放后端 `.env`，不要写进前端、文档、聊天或提交仓库。
 - 演示账号共享，适合单人/课堂演示；多人同时操作会互相影响订单与积分。

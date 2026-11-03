@@ -29,7 +29,7 @@ router = APIRouter(prefix="/member", tags=["会员"])
 
 @router.get("/profile", response_model=ApiResponse[MemberProfileOut], summary="会员等级、积分、余额、成长值")
 def profile(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    growth = user.points
+    growth = user.growth or 0
     all_levels = levels(db)
     index = 0
     for position, level in enumerate(all_levels):

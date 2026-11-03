@@ -5,7 +5,7 @@
 
 import hmac
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from app.constants import now_ms
@@ -66,7 +66,22 @@ def complete_pickup(db: Session, code: str, pin: str) -> Order:
     _check_pin(pin)
     order = _find_order(db, code)
     _ensure_making(order)
-    order.finish_time = now_ms()
+    finish_time = now_ms()
+    result = db.execute(
+        update(Order)
+        .where(
+            Order.out_trade_no == order.out_trade_no,
+            Order.state == "making",
+        )
+        .values(state="completed", finish_time=finish_time)
+    )
+    if (result.rowcount or 0) != 1:
+        db.rollback()
+        current = db.get(Order, order.out_trade_no)
+        if current is not None and current.state == "completed":
+            return current
+        raise BizError(4001, "订单状态已变化，请刷新后重试", 409)
     order.state = "completed"
+    order.finish_time = finish_time
     db.commit()
     return order

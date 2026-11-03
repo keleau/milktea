@@ -39,6 +39,7 @@ class User(Base):
         default="V1",
     )
     points: Mapped[int] = mapped_column(Integer, default=0)
+    growth: Mapped[int] = mapped_column(Integer, default=0)
     balance: Mapped[Decimal] = mapped_column(Numeric(10, 2), default=Decimal("0.00"))
     created_at: Mapped[int] = mapped_column(BigInteger)
 
@@ -177,6 +178,7 @@ class Order(Base):
         ForeignKey("users.id", onupdate="CASCADE", ondelete="RESTRICT")
     )
     state: Mapped[str] = mapped_column(String(16), default="pending_pay")
+    stock_reserved: Mapped[bool] = mapped_column(Boolean, default=False)
     store_id: Mapped[int] = mapped_column(
         ForeignKey("stores.id", onupdate="CASCADE", ondelete="RESTRICT")
     )

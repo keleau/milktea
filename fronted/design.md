@@ -35,6 +35,9 @@
 
 ## 4. 设计系统
 
+> **2026-11 视觉升级（当前生效）**：新增全局主题层 [`common/style/premium.css`](common/style/premium.css)，只覆盖配色、字体、表面、圆角、阴影和按钮/标签语法，不改动页面结构、图片位置、脚本与接口。当前核心 token：背景 `#F4EDE3`、卡片 `#FFFCF7`、主色 `#6F4B2E`（按压 `#53351F`）、强调 `#B86A3B`（按钮用 `#9F552D`）、主文字 `#2C211A`、次文字 `#6E5D4E`、分割线 `#E6D9C9`；卡片圆角 24rpx、按钮/输入 12rpx，展示标题与价格使用宋体/Georgia 衬线，按钮改为无渐变的实色胶囊。下文 4.1–4.5 的历史 token 仍作为页面语义参考，实际渲染以 `premium.css` 为准。
+
+
 ### 4.1 色彩（Palette）
 
 | Token | 值 | 用途 |
@@ -211,7 +214,7 @@
 
 ### 8.1 底部导航（TabBar）
 - 四个标准 Tab：首页 / 点单 / 订单 / 我的；中央凸起品牌按钮为规范预留（后续自定义 tabBar 实现），首版以标准 tabBar 交付
-- 选中态：图标+文字变 brand；未选中 `#A79B8E`
+- 选中态：图标+文字变 brand（`#6F4B2E`）；未选中 `#9A8A7A`
 - 切换：`uni.switchTab`，无转场动画
 
 ### 8.2 页面跳转
@@ -238,6 +241,7 @@
 ### 8.5 动效规范（Motion）
 - **页面入场**：各区块 `fadeUp 0.55s cubic-bezier(0.22,0.61,0.36,1)`，级联延迟 0.08s/0.16s
 - **海报轮播切换（精髓时序，强制）**：海报随 swiper 落位后文字组才入场——kicker 0.50s → 标题 0.58s → 大数字 popIn 0.68s（scale 0.86→1 回弹）→ 副题 0.78s → CTA 0.86s（txtIn 0.36s ease）；场景图最后 0.95s `translateX(64rpx)+scale(1.05→1)` 浮现（bgIn 0.6s ease-out）。「先文字、后画面」顺序不可倒置
+- **悬浮 AI 入口**：首页/点单页右下角 168rpx 圆形猫娘 GIF，`afFloat` 3.4s ±10rpx 上下浮动；下方 38rpx 眼睛按钮收起，收起后只留 58rpx「AI」小气泡；有购物车时上移 154rpx，弹层打开时隐藏
 - **按压反馈**：可点元素 `hover-class` 缩放 0.97 + 透明度 0.85，过渡 0.18s ease；入场动画与按压态分层（动画放包装层，按压放本体）
 - **时长上限**：单段动效 ≤ 650ms，缓动一律 ease-out 系
 
@@ -252,11 +256,11 @@
 ## 10. 文件命名与导出规范
 
 - 页面：`pages/<语义名>/index.vue`（如 `pages/menu/index.vue`、`pages/detail/index.vue`）
-- 组件：`components/<名>/<名>.vue`，easycom 自动注册（如 `components/paws/paws.vue`）；**仅保留有页面引用的组件**（paws/share），未引用的 navbar/formater/counter 已清理
+- 组件：`components/<名>/<名>.vue`，easycom 自动注册（如 `components/paws/paws.vue`）；**仅保留有页面引用的组件**（paws/share/ai-float），未引用的 navbar/formater/counter 已清理
 - 数据与工具：`common/data/`（`drinks.js` 产品线与饮品、`shop.js` 门店/优惠券、`orders.js` 订单读写，`index.js` 统一出口）；`common/utils/`（`image.js` 图片工厂、`storage.js` 安全缓存）；`common/store/session.js` 页面间临时态（结算草稿、订单筛选）
 - 样式 Token：`uni.scss` 中 `$vp-*` 变量，页面样式内联于 SFC `<style>`
-- 静态资源：`static/resource/images/`，小写 + 下划线；**仅保留被引用资源**（tab 图标 8 张、avatar.jpg、share 弹层、banner_summer.jpg / banner_boba.jpg / banner_milk.jpg、drink_1~12.jpg；banner_cat.jpg 为黑糖波波备用素材），模板遗留图已清理
-- 饮品图：1~12 号全部使用本地 `drink_<id>.jpg`（560×560，已去水印、压缩 19~27KB）。Banner：本地 3 张 `banner_summer / banner_boba / banner_milk`（750×788，与轮播容器同比例——保证猫、奶茶杯、背景三者都完整露出，不被 aspectFill 裁掉），轮播固定 3 页（新客专享 → 会员日 → 猫爪厚乳茶，浅/深/浅交替）；本地单图统一 ≤100KB，禁止大图入包
+- 静态资源：`static/resource/images/`，小写 + 下划线；**仅保留被引用资源**（tab 图标 8 张、avatar.jpg、share 弹层、banner_summer.jpg / banner_boba.jpg / banner_milk.jpg、drink_1~12.jpg、ai_maid.gif、maid_wave.png、fx/*.png），模板遗留图已清理
+- 饮品图：1~12 号全部使用本地 `drink_<id>.jpg`（560×560，已去水印、压缩 19~27KB）。Banner：本地 3 张 `banner_summer / banner_boba / banner_milk`（750×788，与轮播容器同比例——保证猫、奶茶杯、背景三者都完整露出，不被 aspectFill 裁掉），轮播固定 3 页（新客专享 → 会员日 → 猫爪厚乳茶，浅/深/浅交替）；静态图统一 ≤100KB。AI 悬浮猫娘 `ai_maid.gif`（240×240，135KB）与点击挥手帧 `maid_wave.png`（240×240，113KB）均已压缩，不要再放大或拉长；`static` 当前约 842KB
 - 本地订单：`uni.storage` key `milk_orders`（数组，`out_trade_no` 唯一）
 - 分支命名：`feature/cat-theme`；提交信息：`feat: 四猫茶学园首页改版` 格式
 
