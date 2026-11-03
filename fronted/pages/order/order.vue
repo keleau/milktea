@@ -80,8 +80,8 @@
 			</view>
 			<view class="act-spacer" v-else></view>
 			<view class="ghost-btn" v-if="canCancel" hover-class="hv" @tap="cancelOrder">取消订单</view>
-			<view class="go-btn" v-if="order.state === 'pending_pay'" hover-class="go-hv" @tap="payCurrentOrder">
-				{{ paying ? '支付中…' : '立即支付' }}
+			<view class="go-btn" v-if="order.state === 'pending_pay'" hover-class="go-hv" @tap="openPaySheet">
+				立即支付
 			</view>
 			<view class="go-btn" v-if="order.state === 'making'" hover-class="go-hv" @tap="completeCurrentOrder">
 				{{ acting ? '处理中…' : '模拟出杯' }}
@@ -116,6 +116,15 @@
 				</view>
 			</view>
 		</view>
+
+		<WechatPaySheet
+			:visible="paySheetOpen"
+			:amount="order.total"
+			:paying="payPaying"
+			:paid="payPaid"
+			@close="closePaySheet"
+			@confirm="confirmPay"
+		/>
 	</view>
 	<view class="loading" v-else>{{ loadingText }}</view>
 </template>
@@ -124,6 +133,7 @@
 import { ref, computed } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import OrderItemCard from '@/components/order/order-item-card.vue'
+import WechatPaySheet from '@/components/pay/wechat-pay-sheet.vue'
 import { getOptions, getProduct } from '@/common/api/catalog'
 import {
 	cancelOrder as cancelOrderApi,
@@ -143,7 +153,9 @@ import { setCheckoutDraft } from '@/common/store/session'
 const order = ref(null)
 const pickupQr = ref('')
 const loadingText = ref('加载中…')
-const paying = ref(false)
+const paySheetOpen = ref(false)
+const payPaying = ref(false)
+const payPaid = ref(false)
 const acting = ref(false)
 const reviewing = ref(false)
 const reviewOpen = ref(false)
@@ -206,21 +218,38 @@ const showPickCode = computed(() => order.value?.state === 'making' || order.val
 const canCancel = computed(() => order.value?.state === 'pending_pay' || order.value?.state === 'making')
 const showActions = computed(() => ['pending_pay', 'making', 'completed', 'cancelled'].includes(order.value?.state))
 
-const payCurrentOrder = async () => {
-	if (paying.value) return
-	paying.value = true
+const openPaySheet = () => {
+	if (payPaying.value) return
+	payPaying.value = false
+	payPaid.value = false
+	paySheetOpen.value = true
+}
+
+const closePaySheet = () => {
+	if (payPaying.value) return
+	paySheetOpen.value = false
+}
+
+const confirmPay = async () => {
+	if (payPaying.value) return
+	payPaying.value = true
 	try {
 		await payOrder(orderNo)
-		await loadOrder()
-		uni.showToast({ title: '支付成功', icon: 'success' })
+		payPaying.value = false
+		payPaid.value = true
+		setTimeout(async () => {
+			paySheetOpen.value = false
+			await loadOrder()
+			uni.showToast({ title: '支付成功', icon: 'success' })
+		}, 600)
 	} catch (error) {
+		payPaying.value = false
 		showError(error)
 		// 已在其他端支付 / 已取消时，当前页状态是旧的，重新拉一次订单
 		if (error.code === 4002 || error.code === 4003) {
+			paySheetOpen.value = false
 			await loadOrder()
 		}
-	} finally {
-		paying.value = false
 	}
 }
 

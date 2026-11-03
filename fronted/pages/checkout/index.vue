@@ -82,6 +82,15 @@
 				{{ submitting ? '提交中…' : '提交订单' }}
 			</view>
 		</view>
+
+		<WechatPaySheet
+			:visible="paySheetOpen"
+			:amount="pendingOrder ? pendingOrder.total : 0"
+			:paying="payPaying"
+			:paid="payPaid"
+			@close="closePaySheet"
+			@confirm="confirmPay"
+		/>
 	</view>
 </template>
 
@@ -89,6 +98,7 @@
 import { ref, computed } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import OrderItemCard from '@/components/order/order-item-card.vue'
+import WechatPaySheet from '@/components/pay/wechat-pay-sheet.vue'
 import { getStore } from '@/common/api/catalog'
 import { getAddresses } from '@/common/api/addresses'
 import { createOrder, payOrder, pricePreview } from '@/common/api/orders'
@@ -108,6 +118,10 @@ const usableCoupons = ref([])
 const submitting = ref(false)
 const previewLoading = ref(false)
 const initialized = ref(false)
+const paySheetOpen = ref(false)
+const payPaying = ref(false)
+const payPaid = ref(false)
+const pendingOrder = ref(null)
 const preview = ref({
 	subtotal: 0,
 	pack_fee: 0,
@@ -251,21 +265,48 @@ const submitOrder = async () => {
 			items: toOrderItems(draft.value.items)
 		}, idempotencyKey)
 		clearCheckoutDraft()
-
-		let paid = false
-		try {
-			await payOrder(order.out_trade_no)
-			paid = true
-		} catch (error) {
-			console.warn('[checkout] 模拟支付失败，可在订单详情继续支付', error)
-		}
-		uni.redirectTo({ url: '/pages/order/order?oid=' + order.out_trade_no })
-		if (!paid) {
-			setTimeout(() => uni.showToast({ title: '订单已创建，请在详情页支付', icon: 'none' }), 300)
-		}
+		pendingOrder.value = order
+		payPaying.value = false
+		payPaid.value = false
+		paySheetOpen.value = true
+		submitting.value = false
 	} catch (error) {
 		showError(error)
 		submitting.value = false
+	}
+}
+
+const goOrderDetail = () => {
+	if (!pendingOrder.value) return
+	uni.redirectTo({ url: '/pages/order/order?oid=' + pendingOrder.value.out_trade_no })
+}
+
+const closePaySheet = () => {
+	if (payPaying.value) return
+	paySheetOpen.value = false
+	goOrderDetail()
+	setTimeout(() => uni.showToast({ title: '订单已创建，请在详情页支付', icon: 'none' }), 300)
+}
+
+const confirmPay = async () => {
+	if (payPaying.value || !pendingOrder.value) return
+	payPaying.value = true
+	try {
+		await payOrder(pendingOrder.value.out_trade_no)
+		payPaying.value = false
+		payPaid.value = true
+		setTimeout(() => {
+			paySheetOpen.value = false
+			goOrderDetail()
+		}, 600)
+	} catch (error) {
+		payPaying.value = false
+		showError(error)
+		// 订单已支付/已取消时不再让用户停在收银台，直接去详情页看最新状态
+		if (error.code === 4002 || error.code === 4003) {
+			paySheetOpen.value = false
+			goOrderDetail()
+		}
 	}
 }
 </script>
