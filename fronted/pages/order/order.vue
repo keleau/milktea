@@ -23,15 +23,17 @@
 		<!-- 清单 -->
 		<view class="panel">
 			<text class="p-title">订单清单</text>
-			<view class="od-item" v-for="(item, i) in order.items" :key="i">
-				<image class="od-img" :src="item.image" mode="aspectFill"></image>
-				<view class="od-info">
-					<text class="od-name">{{ item.name }}</text>
-					<text class="od-spec">{{ itemSpec(item) }}</text>
-					<text class="od-count">x{{ item.count }}</text>
-				</view>
-				<view class="od-price">¥{{ item.amount }}</view>
-			</view>
+			<OrderItemCard
+				v-for="(item, i) in order.items"
+				:key="i"
+				:image="item.image"
+				:name="item.name"
+				:spec="formatItemSpec(item)"
+				:count="item.count"
+				:amount="item.amount"
+				bordered
+				accent
+			/>
 		</view>
 
 		<!-- 订单信息 -->
@@ -113,6 +115,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
+import OrderItemCard from '@/components/order/order-item-card.vue'
 import { getOptions, getProduct } from '@/common/api/catalog'
 import {
 	cancelOrder as cancelOrderApi,
@@ -126,6 +129,7 @@ import {
 import { ensureLogin } from '@/common/api/auth'
 import { showError } from '@/common/api/request'
 import { toDrink } from '@/common/api/adapters'
+import { formatItemSpec } from '@/common/utils/order'
 import { setCheckoutDraft } from '@/common/store/session'
 
 const order = ref(null)
@@ -193,10 +197,6 @@ const stateSub = computed(() => ({
 const showPickCode = computed(() => order.value?.state === 'making' || order.value?.state === 'completed')
 const canCancel = computed(() => order.value?.state === 'pending_pay' || order.value?.state === 'making')
 const showActions = computed(() => ['pending_pay', 'making', 'completed', 'cancelled'].includes(order.value?.state))
-
-const itemSpec = (item) => [item.ice, item.sugar, item.topping_names]
-	.filter(Boolean)
-	.join(' / ')
 
 const payCurrentOrder = async () => {
 	if (paying.value) return
@@ -389,52 +389,6 @@ page {
 	font-size: 22rpx;
 	color: #8c8177;
 }
-.od-item {
-	display: flex;
-	align-items: center;
-	margin-top: 24rpx;
-	padding-bottom: 24rpx;
-	border-bottom: 2rpx solid #f0e9e1;
-}
-.od-item:last-child {
-	padding-bottom: 0;
-	border-bottom: none;
-}
-.od-img {
-	flex-shrink: 0;
-	width: 120rpx;
-	height: 120rpx;
-	border-radius: 24rpx;
-	background: #f3eae0;
-}
-.od-info {
-	flex: 1;
-	min-width: 0;
-	margin: 0 20rpx;
-	display: flex;
-	flex-direction: column;
-}
-.od-name {
-	font-size: 28rpx;
-	font-weight: medium;
-	color: #3d3229;
-}
-.od-spec {
-	font-size: 22rpx;
-	color: #8c8177;
-	margin-top: 6rpx;
-}
-.od-count {
-	font-size: 22rpx;
-	color: #c9c0b7;
-	margin-top: 6rpx;
-}
-.od-price {
-	font-size: 28rpx;
-	font-weight: medium;
-	color: #e8833a;
-}
-
 .sum-line {
 	display: flex;
 	justify-content: space-between;

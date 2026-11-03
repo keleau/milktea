@@ -32,15 +32,15 @@
 		<!-- 订单清单 -->
 		<view class="panel">
 			<text class="p-title">订单清单</text>
-			<view class="od-item" v-for="(it, i) in draft.items" :key="i">
-				<image class="od-img" :src="it.product.img" mode="aspectFill"></image>
-				<view class="od-info">
-					<text class="od-name">{{ it.product.name }}</text>
-					<text class="od-spec">{{ specText(it) }}</text>
-					<text class="od-count">x{{ it.count }}</text>
-				</view>
-				<view class="od-price">¥{{ itemAmount(it) }}</view>
-			</view>
+			<OrderItemCard
+				v-for="(it, i) in draft.items"
+				:key="i"
+				:image="it.product.img"
+				:name="it.product.name"
+				:spec="formatItemSpec(it)"
+				:count="it.count"
+				:amount="lineAmount(it)"
+			/>
 		</view>
 
 		<!-- 优惠券 -->
@@ -88,12 +88,14 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
+import OrderItemCard from '@/components/order/order-item-card.vue'
 import { getStore } from '@/common/api/catalog'
 import { getAddresses } from '@/common/api/addresses'
 import { createOrder, payOrder, pricePreview } from '@/common/api/orders'
 import { ensureLogin } from '@/common/api/auth'
 import { showError } from '@/common/api/request'
 import { toCoupon, toOrderItems } from '@/common/api/adapters'
+import { formatItemSpec, lineAmount } from '@/common/utils/order'
 import { clearCheckoutDraft, getCheckoutDraft, takeSelectedAddressId } from '@/common/store/session'
 
 const draft = ref(null)
@@ -150,6 +152,7 @@ onLoad(async () => {
 		await ensureLogin()
 	} catch (error) {
 		showError(error)
+		return
 	}
 
 	try {
@@ -225,16 +228,6 @@ const pickCoupon = (coupon) => {
 
 const toAddress = () => {
 	uni.navigateTo({ url: '/pages/address/index?select=1' })
-}
-
-const specText = (it) => [it.ice, it.sugar]
-	.concat((it.toppings || []).map(t => t.name))
-	.filter(Boolean)
-	.join(' / ')
-
-const itemAmount = (it) => {
-	const toppingPrice = (it.toppings || []).reduce((s, t) => s + Number(t.price || 0), 0)
-	return Number(((it.product.price + toppingPrice) * it.count).toFixed(2))
 }
 
 const submitOrder = async () => {
@@ -367,50 +360,6 @@ page {
 	margin-left: 16rpx;
 	font-size: 34rpx;
 	font-weight: bold;
-	color: #3d3229;
-}
-
-/* 清单 */
-.od-item {
-	display: flex;
-	align-items: center;
-	margin-top: 24rpx;
-}
-.od-img {
-	flex-shrink: 0;
-	width: 120rpx;
-	height: 120rpx;
-	border-radius: 24rpx;
-	background: #f3eae0;
-}
-.od-info {
-	flex: 1;
-	min-width: 0;
-	margin: 0 20rpx;
-	display: flex;
-	flex-direction: column;
-}
-.od-name {
-	font-size: 28rpx;
-	font-weight: medium;
-	color: #3d3229;
-}
-.od-spec {
-	font-size: 22rpx;
-	color: #8c8177;
-	margin-top: 6rpx;
-	overflow: hidden;
-	white-space: nowrap;
-	text-overflow: ellipsis;
-}
-.od-count {
-	font-size: 22rpx;
-	color: #c9c0b7;
-	margin-top: 6rpx;
-}
-.od-price {
-	font-size: 28rpx;
-	font-weight: medium;
 	color: #3d3229;
 }
 

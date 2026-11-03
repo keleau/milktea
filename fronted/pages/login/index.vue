@@ -77,6 +77,7 @@ const submit = async (type, task) => {
 	loading.value = type
 	try {
 		await task()
+		loading.value = ''
 		uni.showToast({ title: '登录成功', icon: 'success', duration: 800 })
 		setTimeout(() => {
 			uni.switchTab({ url: '/pages/index/index' })

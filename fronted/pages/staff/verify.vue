@@ -38,7 +38,7 @@
 			<view class="res-items">
 				<view class="res-item" v-for="(it, i) in order.items" :key="i">
 					<text class="ri-name">{{ it.name }} ×{{ it.count }}</text>
-					<text class="ri-spec">{{ itemSpec(it) }}</text>
+					<text class="ri-spec">{{ formatItemSpec(it) }}</text>
 				</view>
 			</view>
 			<view class="done-btn" v-if="order.state === 'making'" hover-class="go-hv" @tap="confirmPickup">
@@ -53,6 +53,7 @@
 import { ref } from 'vue'
 import { lookupPickup, completePickup } from '@/common/api/staff'
 import { showError } from '@/common/api/request'
+import { formatItemSpec } from '@/common/utils/order'
 import { scanCode, isScanCancel } from '@/common/utils/scan'
 import { readStorage, writeStorage } from '@/common/utils/storage'
 
@@ -86,8 +87,6 @@ const ensurePin = () => {
 	}
 	return true
 }
-
-const itemSpec = (item) => [item.ice, item.sugar, item.topping_names].filter(Boolean).join(' / ')
 
 const lookup = async (raw) => {
 	if (loading.value) return

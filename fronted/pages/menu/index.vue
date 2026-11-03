@@ -129,10 +129,10 @@
 						<image class="cpn-img" :src="it.product.img" mode="aspectFill"></image>
 						<view class="cpn-mid">
 							<text class="cpn-name">{{ it.product.name }}</text>
-							<text class="cpn-spec">{{ itemSpec(it) }}</text>
+							<text class="cpn-spec">{{ formatItemSpec(it, '·') }}</text>
 						</view>
 						<view class="cpn-right">
-							<text class="cpn-price">¥{{ itemTotal(it) }}</text>
+							<text class="cpn-price">¥{{ lineAmount(it) }}</text>
 							<text class="cpn-count">×{{ it.count }}</text>
 						</view>
 						<view class="cpn-del" hover-class="hv" @tap.stop="removeItem(i)">删除</view>
@@ -291,6 +291,7 @@ import { ensureLogin } from '@/common/api/auth'
 import { showError } from '@/common/api/request'
 import { toDrink } from '@/common/api/adapters'
 import { getStoreId, saveStoreId } from '@/common/api/token'
+import { formatItemSpec, lineAmount } from '@/common/utils/order'
 import { setCheckoutDraft, getCheckoutDraft } from '@/common/store/session'
 import { getTableContext, saveTableContext, clearTableContext } from '@/common/store/table'
 import { scanCode, isScanCancel } from '@/common/utils/scan'
@@ -691,10 +692,8 @@ const cart = ref([])
 const cartOpen = ref(false)
 // 购物车是否已带到结算页；订单创建成功后草稿会被清空，菜单 onShow 再清空购物车
 let cartCheckoutPending = false
-const toppingTotal = (it) => (it.toppings || []).reduce((s, t) => s + Number(t.price || 0), 0)
-const itemTotal = (it) => Number(((it.product.price + toppingTotal(it)) * it.count).toFixed(2))
 const cartCount = computed(() => cart.value.reduce((s, it) => s + it.count, 0))
-const cartTotal = computed(() => Number(cart.value.reduce((s, it) => s + itemTotal(it), 0).toFixed(2)))
+const cartTotal = computed(() => Number(cart.value.reduce((s, it) => s + lineAmount(it), 0).toFixed(2)))
 const cartSave = computed(() => Number(cart.value.reduce(
 	(s, it) => s + (it.product.orig ? (it.product.orig - it.product.price) * it.count : 0),
 	0
@@ -738,7 +737,6 @@ const buyNow = () => {
 	uni.navigateTo({ url: '/pages/checkout/index' })
 }
 const toggleCart = () => { cartOpen.value = !cartOpen.value }
-const itemSpec = (it) => [it.ice, it.sugar].concat((it.toppings || []).map(t => t.name)).join('·')
 const removeItem = (i) => {
 	cart.value.splice(i, 1)
 	if (!cart.value.length) cartOpen.value = false

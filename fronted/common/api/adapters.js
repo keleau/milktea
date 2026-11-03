@@ -2,6 +2,7 @@
  * 后端字段 → 页面视图字段
  * 页面仍用原来的 drink.img / coupon.min / state_text 等名字，避免大改模板
  */
+import { formatItemSpec } from '../utils/order'
 
 export const ORDER_STATE_TEXT = {
 	pending_pay: '待支付',
@@ -137,7 +138,7 @@ export function toOrderSummary(order) {
 		shortNo: (order.out_trade_no || '').slice(-8),
 		img: first ? resolveImage(first.image) : '',
 		name: first ? first.name : '',
-		spec: first ? [first.ice, first.sugar, first.topping_names].filter(Boolean).join(' / ') : '',
+		spec: first ? formatItemSpec(first) : '',
 		count,
 		stateText: order.state_text || ORDER_STATE_TEXT[order.state] || order.state,
 		modeText: order.mode_text,

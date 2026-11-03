@@ -1,6 +1,7 @@
 import random
 
 from sqlalchemy import func, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.constants import MODE_TEXT, STATE_TEXT, now_ms
@@ -17,7 +18,11 @@ from app.models import (
     User,
     UserCoupon,
 )
-from app.services.coupons import refresh_status
+from app.services.coupons import (
+    claim_for_order,
+    consume_for_order,
+    release_for_order,
+)
 from app.services.member import change_points
 from app.services.pricing import quote
 from app.tables import table_exists
@@ -40,19 +45,6 @@ def get_owned_order(
     return order
 
 
-def _release_coupon(db: Session, order: Order) -> None:
-    if not order.coupon_id:
-        return
-    coupon = db.get(UserCoupon, order.coupon_id)
-    if coupon is None:
-        return
-    if coupon.locked_by == order.out_trade_no:
-        coupon.locked_by = None
-    if coupon.status == "used":
-        coupon.status = "unused"
-    refresh_status(coupon)
-
-
 def _snapshot_quantities(snapshots: list[dict]) -> tuple[dict[int, int], dict[int, str]]:
     required: dict[int, int] = {}
     names: dict[int, str] = {}
@@ -70,6 +62,29 @@ def _order_quantities(order: Order) -> tuple[dict[int, int], dict[int, str]]:
         required[item.product_id] = required.get(item.product_id, 0) + item.count
         names[item.product_id] = item.name
     return required, names
+
+
+def _normalize_table_no(payload: dict, store: Store) -> str | None:
+    table_no = (payload.get("table_no") or "").strip().upper() or None
+    if not table_no:
+        return None
+    if payload["mode"] != "pickup":
+        raise BizError(1001, "堂食订单只能选自取", 400)
+    if not table_exists(store.id, table_no):
+        raise BizError(1004, "桌号不存在，请重新扫码", 404)
+    return table_no
+
+
+def _resolve_address(db: Session, user: User, payload: dict) -> Address | None:
+    if payload["mode"] != "delivery":
+        return None
+    address_id = payload.get("address_id")
+    if not address_id:
+        raise BizError(1001, "外送订单需要选择收货地址", 400)
+    address = db.get(Address, address_id)
+    if address is None or address.user_id != user.id:
+        raise BizError(1004, "收货地址不存在", 404)
+    return address
 
 
 def _deduct_stock(
@@ -146,7 +161,7 @@ def get_idempotent(db: Session, user_id: int, key: str) -> str | None:
         return None
     if row.expires_at <= now_ms() or db.get(Order, row.order_no) is None:
         db.delete(row)
-        db.commit()
+        db.flush()
         return None
     return row.order_no
 
@@ -167,21 +182,8 @@ def create_order(
     result = quote(db, user.id, payload)
     store = result["store"]
 
-    table_no = (payload.get("table_no") or "").strip().upper() or None
-    if table_no:
-        if payload["mode"] != "pickup":
-            raise BizError(1001, "堂食订单只能选自取", 400)
-        if not table_exists(store.id, table_no):
-            raise BizError(1004, "桌号不存在，请重新扫码", 404)
-
-    address = None
-    if payload["mode"] == "delivery":
-        address_id = payload.get("address_id")
-        if not address_id:
-            raise BizError(1001, "外送订单需要选择收货地址", 400)
-        address = db.get(Address, address_id)
-        if address is None or address.user_id != user.id:
-            raise BizError(1004, "收货地址不存在", 404)
+    table_no = _normalize_table_no(payload, store)
+    address = _resolve_address(db, user, payload)
 
     required, names = _snapshot_quantities(result["items"])
     _deduct_stock(db, required, names)
@@ -189,30 +191,7 @@ def create_order(
     out_trade_no = _new_order_no(db)
 
     if result["coupon"] is not None:
-        coupon = result["coupon"]
-        claimed = db.execute(
-            update(UserCoupon)
-            .where(
-                UserCoupon.id == coupon.id,
-                UserCoupon.user_id == user.id,
-                UserCoupon.status == "unused",
-                UserCoupon.locked_by.is_(None),
-                UserCoupon.expire_at > now_ms(),
-            )
-            .values(locked_by=out_trade_no)
-        )
-        if (claimed.rowcount or 0) != 1:
-            db.rollback()
-            fresh = db.get(UserCoupon, coupon.id)
-            if fresh is None:
-                raise BizError(3001, "优惠券不存在或不可用", 400)
-            refresh_status(fresh)
-            if fresh.status == "used":
-                raise BizError(3002, "优惠券已使用", 409)
-            if fresh.status == "expired":
-                raise BizError(3002, "优惠券已过期", 409)
-            raise BizError(3004, "优惠券已被其他订单占用", 409)
-        coupon.locked_by = out_trade_no
+        claim_for_order(db, result["coupon"], user.id, out_trade_no)
 
     order = Order(
         out_trade_no=out_trade_no,
@@ -274,7 +253,18 @@ def create_order(
                 expires_at=now_ms() + settings.idempotency_ttl * 1000,
             )
         )
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # 同一幂等键被两个请求同时提交：让后到者返回先到者已经创建的订单。
+        db.rollback()
+        if idempotency_key:
+            existing = db.get(IdempotencyKey, (user.id, idempotency_key))
+            if existing is not None:
+                existing_order = db.get(Order, existing.order_no)
+                if existing_order is not None:
+                    return existing_order
+        raise
     return order
 
 
@@ -303,7 +293,7 @@ def cancel_order(db: Session, user: User, out_trade_no: str) -> Order:
     if order.stock_reserved or was_making:
         _restore_stock(db, order)
 
-    _release_coupon(db, order)
+    release_for_order(db, order.coupon_id, order.out_trade_no)
     if was_making and order.earning_points:
         change_points(db, user, -order.earning_points, "订单取消，积分退回", "refund")
         order.earning_points = 0
@@ -327,17 +317,7 @@ def pay_order(db: Session, out_trade_no: str, transaction_id: str | None = None)
         if product is None or not product.on_sale:
             raise BizError(2001, "订单中的商品已下架", 400)
 
-    coupon = None
-    if order.coupon_id:
-        coupon = db.get(UserCoupon, order.coupon_id)
-        if coupon is not None:
-            if coupon.locked_by not in (None, out_trade_no):
-                raise BizError(3004, "优惠券已被其他订单占用", 409)
-            refresh_status(coupon)
-            if coupon.status == "used":
-                raise BizError(3002, "优惠券已使用", 409)
-            if coupon.status == "expired":
-                raise BizError(3002, "优惠券已过期", 409)
+    coupon = db.get(UserCoupon, order.coupon_id) if order.coupon_id else None
 
     pick_code = _new_pick_code()
     pay_time = now_ms()
@@ -371,26 +351,7 @@ def pay_order(db: Session, out_trade_no: str, transaction_id: str | None = None)
         _deduct_stock(db, required, names)
 
     if coupon is not None:
-        used = db.execute(
-            update(UserCoupon)
-            .where(
-                UserCoupon.id == coupon.id,
-                UserCoupon.status == "unused",
-                (UserCoupon.locked_by.is_(None))
-                | (UserCoupon.locked_by == out_trade_no),
-            )
-            .values(status="used", locked_by=None)
-        )
-        if (used.rowcount or 0) != 1:
-            db.rollback()
-            refresh_status(coupon)
-            if coupon.status == "used":
-                raise BizError(3002, "优惠券已使用", 409)
-            if coupon.status == "expired":
-                raise BizError(3002, "优惠券已过期", 409)
-            raise BizError(3004, "优惠券已被其他订单占用", 409)
-        coupon.status = "used"
-        coupon.locked_by = None
+        consume_for_order(db, coupon, out_trade_no)
 
     user = db.get(User, order.user_id)
     earned = int(order.total)
@@ -508,7 +469,7 @@ def expire_pending_orders(db: Session, timeout_minutes: int | None = None) -> in
         order.state = "cancelled"
         if order.stock_reserved:
             _restore_stock(db, order)
-        _release_coupon(db, order)
+        release_for_order(db, order.coupon_id, order.out_trade_no)
         expired += 1
     db.commit()
     return expired
