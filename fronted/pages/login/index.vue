@@ -50,7 +50,7 @@
 
 <script setup>
 import { ref } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
+import { onReady } from '@dcloudio/uni-app'
 import { login, loginWithWechat } from '@/common/api/auth'
 import { getAccessToken } from '@/common/api/token'
 import { showError } from '@/common/api/request'
@@ -65,11 +65,19 @@ const loading = ref('')
 const profileOpen = ref(false)
 const profileUser = ref({ avatar: '', nickname: '' })
 
-onLoad(() => {
-	// 已登录直接进首页，避免每次启动都停在登录页
-	if (getAccessToken()) {
-		uni.switchTab({ url: '/pages/index/index' })
-	}
+let redirectingHome = false
+onReady(() => {
+	// 已登录直接进首页；延迟到页面 ready 后再切 tab，避免 appLaunch 阶段页面栈未稳定
+	if (!getAccessToken() || redirectingHome) return
+	redirectingHome = true
+	setTimeout(() => {
+		uni.switchTab({
+			url: '/pages/index/index',
+			fail: () => {
+				redirectingHome = false
+			}
+		})
+	}, 100)
 })
 
 const submit = async (type, task) => {

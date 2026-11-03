@@ -25,14 +25,26 @@ export function redirectToLogin() {
 	const route = pages.length ? pages[pages.length - 1].route : ''
 	if (route === 'pages/login/index') return
 	redirecting = true
-	uni.reLaunch({
-		url: LOGIN_PAGE,
-		complete: () => {
-			setTimeout(() => {
-				redirecting = false
-			}, 800)
-		}
-	})
+	// 页面 onLoad/onShow 阶段的 401 可能在 appLaunch 中触发 reLaunch，
+	// 延迟一拍，避免「appLaunch with non-empty page stack」。
+	const goLogin = (attempt = 0) => {
+		uni.reLaunch({
+			url: LOGIN_PAGE,
+			success: () => {
+				setTimeout(() => {
+					redirecting = false
+				}, 800)
+			},
+			fail: () => {
+				if (attempt < 2) {
+					setTimeout(() => goLogin(attempt + 1), 250)
+				} else {
+					redirecting = false
+				}
+			}
+		})
+	}
+	setTimeout(() => goLogin(), 100)
 }
 
 /** 拼接 query，空值不传（后端 state 等 Literal 参数不能收空字符串） */
