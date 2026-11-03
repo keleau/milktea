@@ -292,7 +292,7 @@ import { showError } from '@/common/api/request'
 import { toDrink } from '@/common/api/adapters'
 import { getStoreId, saveStoreId } from '@/common/api/token'
 import { formatItemSpec, lineAmount } from '@/common/utils/order'
-import { setCheckoutDraft, getCheckoutDraft } from '@/common/store/session'
+import { setCheckoutDraft, getCheckoutDraft, takeMenuMode } from '@/common/store/session'
 import { getTableContext, saveTableContext, clearTableContext } from '@/common/store/table'
 import { scanCode, isScanCancel } from '@/common/utils/scan'
 
@@ -632,6 +632,20 @@ onShow(() => {
 			cartOpen.value = false
 		}
 	}
+	const pendingMode = takeMenuMode()
+	if (pendingMode === 'delivery') {
+		// 首页主动点外卖时，桌号和启动 scene 都不能再把模式抢回堂食
+		const entryScene = normalizeScene(readEntryScene())
+		if (entryScene) dismissedEntryScene = entryScene
+		tableCtx.value = null
+		clearTableContext()
+		mode.value = '外送'
+		return
+	}
+	if (pendingMode === 'pickup') {
+		mode.value = '自取'
+	}
+
 	// 热启动：小程序在后台被扫码唤起时，新桌码只在启动参数里
 	applyEntryScene(readEntryScene())
 	const ctx = getTableContext()

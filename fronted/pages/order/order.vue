@@ -5,16 +5,24 @@
 			<text class="bn-title">{{ stateTitle }}</text>
 			<text class="bn-sub">{{ stateSub }}</text>
 			<!-- 取餐码 -->
-			<view class="pick-code" v-if="showPickCode">
-				<text class="pc-label">取餐码</text>
-				<text class="pc-num">{{ order.pick_code }}</text>
+			<view class="pick-ticket" v-if="showPickCode">
+				<view class="pt-main">
+					<text class="pt-kicker">PICK-UP NO.</text>
+					<text class="pt-num">{{ order.pick_code }}</text>
+					<text class="pt-label">取餐码</text>
+				</view>
+				<view class="pt-stub">
+					<text class="pt-stub-title">{{ order.state === 'completed' ? '已取餐' : '到吧台' }}</text>
+					<text class="pt-stub-title">{{ order.state === 'completed' ? '感谢惠顾' : '出示此码' }}</text>
+					<text class="pt-stub-en">{{ order.state === 'completed' ? 'THANK YOU' : 'SHOW TICKET' }}</text>
+				</view>
 			</view>
 			<!-- 待支付提示 -->
 			<text class="bn-sub" v-if="order.state === 'pending_pay'">请尽快完成支付，超时订单将自动取消</text>
 		</view>
 
-		<!-- 取餐二维码：到吧台出示给店员扫 -->
-		<view class="panel qr-panel" v-if="order.mode === 'pickup' && showPickCode && pickupQr">
+		<!-- 取餐二维码：制作中才需要到吧台出示 -->
+		<view class="panel qr-panel" v-if="order.mode === 'pickup' && order.state === 'making' && pickupQr">
 			<text class="p-title">取餐二维码</text>
 			<image class="qr-img" :src="pickupQr" mode="aspectFit"></image>
 			<text class="qr-tip">到吧台出示，店员扫码核销</text>
@@ -164,7 +172,7 @@ const loadOrder = async () => {
 	try {
 		await ensureLogin()
 		order.value = await getOrder(orderNo)
-		if (order.value.mode === 'pickup' && (order.value.state === 'making' || order.value.state === 'completed')) {
+		if (order.value.mode === 'pickup' && order.value.state === 'making') {
 			loadPickupQr()
 		}
 	} catch (error) {
@@ -342,23 +350,68 @@ page {
 	font-size: 24rpx;
 	color: rgba(255, 255, 255, 0.8);
 }
-.pick-code {
-	margin-top: 32rpx;
-	display: inline-flex;
+.pick-ticket {
+	margin-top: 28rpx;
+	display: flex;
+	align-items: stretch;
+	width: 100%;
+	box-sizing: border-box;
+	background: #fffcf7;
+	border-radius: 22rpx;
+	box-shadow: 0 14rpx 30rpx rgba(45, 27, 16, 0.18);
+	overflow: hidden;
+}
+.pt-main {
+	flex: 1;
+	min-width: 0;
+	padding: 22rpx 28rpx 20rpx;
+	display: flex;
 	flex-direction: column;
-	background: rgba(255, 255, 255, 0.16);
-	border-radius: 24rpx;
-	padding: 20rpx 48rpx;
 }
-.pc-label {
+.pt-kicker {
+	font-size: 18rpx;
+	font-weight: 600;
+	letter-spacing: 3rpx;
+	color: #a17f62;
+}
+.pt-num {
+	margin-top: 4rpx;
+	font-family: var(--serif);
+	font-size: 76rpx;
+	font-weight: 700;
+	line-height: 1.05;
+	font-variant-numeric: tabular-nums;
+	letter-spacing: 6rpx;
+	color: #3b2417;
+}
+.pt-label {
+	margin-top: 2rpx;
+	font-size: 20rpx;
+	color: #8e7661;
+}
+.pt-stub {
+	flex-shrink: 0;
+	width: 176rpx;
+	padding: 22rpx 16rpx;
+	box-sizing: border-box;
+	border-left: 2rpx dashed #d8c4ae;
+	background: #fbf4ea;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+}
+.pt-stub-title {
 	font-size: 22rpx;
-	color: rgba(255, 255, 255, 0.8);
+	line-height: 1.5;
+	color: #6f4b2e;
 }
-.pc-num {
-	font-size: 56rpx;
-	font-weight: bold;
-	color: #ffffff;
-	letter-spacing: 8rpx;
+.pt-stub-en {
+	margin-top: 8rpx;
+	font-size: 13rpx;
+	letter-spacing: 1rpx;
+	color: #b7a08a;
+	white-space: nowrap;
 }
 
 /* 面板 */

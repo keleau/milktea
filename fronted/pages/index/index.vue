@@ -50,13 +50,13 @@
 			</view>
 
 			<view class="dual-row">
-				<view class="du-col" hover-class="hv" @tap="toMenu">
+				<view class="du-col" hover-class="hv" @tap="toMenu('pickup')">
 					<text class="du-en">PICK UP</text>
 					<text class="du-title">自取点单</text>
 					<text class="du-sub">下单享优惠 ›</text>
 				</view>
 				<view class="du-divider"></view>
-				<view class="du-col" hover-class="hv" @tap="toMenu">
+				<view class="du-col" hover-class="hv" @tap="toMenu('delivery')">
 					<text class="du-en">DELIVERY</text>
 					<text class="du-title">外送到家</text>
 					<text class="du-sub">每周五最高免配 ›</text>
@@ -154,6 +154,7 @@ import { ensureLogin, fetchMe } from '@/common/api/auth'
 import { showError } from '@/common/api/request'
 import { levelParts, toDrink } from '@/common/api/adapters'
 import { getCachedUser } from '@/common/api/token'
+import { setMenuMode, takeMenuMode } from '@/common/store/session'
 import { saveTableContext } from '@/common/store/table'
 import { scanCode, isScanCancel } from '@/common/utils/scan'
 
@@ -245,8 +246,12 @@ const goBanner = (b) => {
 	if (b.link === 'soon') comingSoon()
 	else toMenu()
 }
-const toMenu = () => {
-	uni.switchTab({ url: '/pages/menu/index' })
+const toMenu = (mode = 'pickup') => {
+	setMenuMode(mode)
+	uni.switchTab({
+		url: '/pages/menu/index',
+		fail: () => takeMenuMode()
+	})
 }
 const scanTable = async () => {
 	let scene = ''

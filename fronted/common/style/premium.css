@@ -68,7 +68,6 @@ page .new-price,
 page .oc-total,
 page .cp-num,
 page .mc-num,
-page .pc-num,
 page .res-code,
 page .price-num,
 page .p-num {
@@ -128,7 +127,6 @@ page .sold,
 page .pl-score,
 page .ri-spec,
 page .qr-tip,
-page .pc-label,
 page .addr-text,
 page .empty-sub,
 page .loading,
@@ -1019,15 +1017,6 @@ page .bn-sub {
 	opacity: 0.72;
 }
 
-page .pick-code {
-	background: rgba(255, 248, 239, 0.1) !important;
-	border: 1rpx solid rgba(255, 248, 239, 0.18) !important;
-}
-
-page .pc-num {
-	color: #fff8ef !important;
-}
-
 page .qr-panel {
 	background: var(--paper) !important;
 }
@@ -1415,11 +1404,6 @@ page .wx-switch-input.wx-switch-input-checked {
 }
 
 /* 深色横幅上的浅色辅助信息 */
-page .banner .pc-label {
-	color: rgba(255, 248, 239, 0.9) !important;
-	font-size: 22rpx !important;
-}
-
 page .oc-tag {
 	background: #f1dfcd !important;
 	color: #53351f !important;

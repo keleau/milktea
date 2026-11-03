@@ -12,6 +12,9 @@ let ordersFilter = null
 /** @type {number|null} 地址页选中后回传给结算页的地址 ID */
 let selectedAddressId = null
 
+/** @type {'pickup'|'delivery'|null} 点单页待应用的模式 */
+let menuMode = null
+
 /** 写入结算草稿 */
 export const setCheckoutDraft = (draft) => {
 	checkoutDraft = draft
@@ -47,4 +50,16 @@ export const takeSelectedAddressId = () => {
 	const id = selectedAddressId
 	selectedAddressId = null
 	return id
+}
+
+/** 首页点“自取/外送”时写入，点单页 onShow 消费一次 */
+export const setMenuMode = (mode) => {
+	menuMode = mode
+}
+
+/** 点单页读取并清空待应用模式 */
+export const takeMenuMode = () => {
+	const mode = menuMode
+	menuMode = null
+	return mode
 }
