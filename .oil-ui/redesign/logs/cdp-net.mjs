@@ -1,0 +1,11 @@
+const targets = await (await fetch('http://127.0.0.1:9223/json')).json();
+const page = targets.find(t => t.type === 'page' && t.url !== 'chrome-extension://nkeimhogjdpnpccoofpliimaahmaaome');
+const ws = new WebSocket(page.webSocketDebuggerUrl);
+let id=0; const pending=new Map();
+const send=(method,params={})=>new Promise((resolve,reject)=>{const mid=++id;pending.set(mid,{resolve,reject});ws.send(JSON.stringify({id:mid,method,params}));});
+ws.onmessage=(ev)=>{const m=JSON.parse(ev.data);if(m.id&&pending.has(m.id)){const p=pending.get(m.id);pending.delete(m.id);m.error?p.reject(m.error):p.resolve(m.result);}else if(m.method==='Network.responseReceived'&&m.params.response.status>=400){console.log('HTTP',m.params.response.status,m.params.response.url);}else if(m.method==='Network.loadingFailed'){console.log('FAILED',m.params.errorText,m.params.blockedReason||'');}else if(m.method==='Runtime.exceptionThrown'){console.log('EXC',m.params.exceptionDetails.text,m.params.exceptionDetails.exception?.description||'');}};
+await new Promise(r=>ws.onopen=r);
+await send('Runtime.enable'); await send('Network.enable'); await send('Page.enable');
+await send('Page.navigate',{url:'http://127.0.0.1:5176/'});
+await new Promise(r=>setTimeout(r,6000));
+ws.close();

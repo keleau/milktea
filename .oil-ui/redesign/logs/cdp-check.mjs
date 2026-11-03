@@ -1,0 +1,13 @@
+const targets = await (await fetch('http://127.0.0.1:9223/json')).json();
+const page = targets.find(t => t.type === 'page' && t.url === 'about:blank') || targets.find(t => t.type === 'page');
+const ws = new WebSocket(page.webSocketDebuggerUrl);
+let id = 0; const pending = new Map();
+const send = (method, params={}) => new Promise((resolve,reject)=>{const mid=++id;pending.set(mid,{resolve,reject});ws.send(JSON.stringify({id:mid,method,params}));});
+ws.onmessage = (ev) => { const msg=JSON.parse(ev.data); if(msg.id&&pending.has(msg.id)){const p=pending.get(msg.id);pending.delete(msg.id);msg.error?p.reject(msg.error):p.resolve(msg.result);} else if(msg.method==='Runtime.consoleAPICalled'){console.log('CONSOLE',msg.params.type,msg.params.args.map(a=>a.value??a.description).join(' '));} else if(msg.method==='Runtime.exceptionThrown'){console.log('EXCEPTION',msg.params.exceptionDetails.text, msg.params.exceptionDetails.exception?.description||'');} else if(msg.method==='Log.entryAdded'){console.log('LOG',msg.params.entry.level,msg.params.entry.text);} };
+await new Promise(r=>ws.onopen=r);
+await send('Runtime.enable'); await send('Log.enable'); await send('Page.enable');
+await send('Page.navigate',{url:'http://127.0.0.1:5176/'});
+await new Promise(r=>setTimeout(r,5000));
+const res=await send('Runtime.evaluate',{expression:'({text:document.body.innerText,html:document.querySelector("#app")?.innerHTML?.slice(0,1000),href:location.href})',returnByValue:true});
+console.log(JSON.stringify(res.result.value,null,2));
+ws.close();
