@@ -79,7 +79,10 @@ function send({ url, method = 'GET', query, data, header = {}, auth = true, time
 			header: finalHeader,
 			timeout,
 			success: resolve,
-			fail: () => reject(new ApiError(-1, '网络请求失败，请检查后端是否启动', 0))
+			fail: (err) => {
+				const detail = err && err.errMsg ? `（${err.errMsg}）` : ''
+				reject(new ApiError(-1, `网络请求失败${detail}，请检查后端地址、局域网和域名校验`, 0))
+			}
 		})
 	})
 }
@@ -200,7 +203,10 @@ export function upload(path, filePath, name = 'file') {
 				}
 				reject(error)
 			},
-			fail: () => reject(new ApiError(-1, '网络请求失败，请检查后端是否启动', 0))
+			fail: (err) => {
+				const detail = err && err.errMsg ? `（${err.errMsg}）` : ''
+				reject(new ApiError(-1, `网络请求失败${detail}，请检查后端地址、局域网和域名校验`, 0))
+			}
 		})
 	})
 	return attempt(false)

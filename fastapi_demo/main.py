@@ -123,4 +123,5 @@ def index():
 
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
+    # 真机调试需要监听局域网；只在本机调试可改回 127.0.0.1
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

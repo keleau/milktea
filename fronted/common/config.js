@@ -1,9 +1,10 @@
 /**
  * 前后端联调配置
- * H5 / 微信开发者工具用 127.0.0.1；真机把 API_BASE_URL 改成电脑局域网 IP，
- * 并同步修改后端 .env 的 BASE_URL（后端用它生成图片完整地址）
+ * 当前为本机真机调试地址：手机和电脑需要同一个 Wi-Fi。
+ * 换网络后改这里，并同步修改后端 .env 的 BASE_URL。
+ * 如果手机连的是电脑热点，可改成 http://192.168.137.1:8000
  */
-export const API_BASE_URL = 'http://127.0.0.1:8000'
+export const API_BASE_URL = 'http://10.158.252.228:8000'
 export const API_PREFIX = '/api/v1'
 
 /** 演示登录：后端把 code=demo 映射到预置会员 1001 */
