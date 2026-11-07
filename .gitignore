@@ -17,3 +17,6 @@ fastapi_demo/certs/
 fastapi_demo/database/*.db-journal
 fastapi_demo/database/*.db-wal
 fastapi_demo/database/*.db-shm
+
+# 本地设计过程目录
+.oil-ui/
