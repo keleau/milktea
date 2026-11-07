@@ -35,7 +35,7 @@
 | 入口 | 状态 |
 |---|---|
 | 演示预览 | [▶ 点击直接观看 10 秒 GIF](docs/previews/demo.gif) |
-| 完整视频 | [docs/video/demo.mp4](docs/video/demo.mp4)（95 秒，需下载后播放） |
+| 完整视频 | [GitHub 文件页](https://github.com/keleau/milktea/blob/main/docs/video/demo.mp4) · [Gitee（需下载后观看）](https://gitee.com/keleau/milktea/raw/main/docs/video/demo.mp4)（95 秒） |
 
 > 录屏建议：登录 → 扫码堂食 → 规格加料 → 提交订单 → 微信支付风格收银台 → 取餐码/二维码 → 店员核销 → AI 点单。
 >
@@ -75,7 +75,7 @@
 
 > 上方为 10 秒 GIF 节选，点击可查看完整尺寸；由微信开发者工具真实运行录屏生成，不是设计稿。
 >
-> 完整视频：[docs/video/demo.mp4](docs/video/demo.mp4)（95 秒，720×1600，需下载后播放）。
+> 完整视频：[GitHub 文件页](https://github.com/keleau/milktea/blob/main/docs/video/demo.mp4) · [Gitee（需下载后观看）](https://gitee.com/keleau/milktea/raw/main/docs/video/demo.mp4)（95 秒，720×1600）。GIF 可直接播放；GitHub 文件页对 MP4 只提供文件/下载入口，Gitee 的 MP4 需下载后观看。
 
 ## 核心亮点
 
