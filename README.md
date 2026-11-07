@@ -32,7 +32,8 @@
 
 | 入口 | 状态 |
 |---|---|
-| 实机演示视频 | [▶ 点击播放（95 秒）](https://cdn.jsdelivr.net/gh/keleau/milktea@main/docs/video/demo.mp4) |
+| 演示预览 | [▶ 点击直接观看 10 秒 GIF](docs/previews/demo.gif) |
+| 完整视频 | [docs/video/demo.mp4](docs/video/demo.mp4)（95 秒，需下载后播放） |
 | 小程序体验码 | **待补** |
 | 在线 H5 | 暂未部署 |
 | GitHub | [github.com/keleau/milktea](https://github.com/keleau/milktea) |
@@ -63,17 +64,19 @@
   <img src="docs/brand/loading.gif" width="220" alt="四猫茶学园加载动画" />
 </p>
 
-> 页面加载时使用的品牌动图：猫娘 logo 浮动 + 加载弧旋转 + 项目名与“正在为你摇茶”动态点。GIF 会在 GitHub 页面里自动循环播放。
+> 页面加载时使用的品牌动图：猫娘 logo 浮动 + 加载弧旋转 + 项目名与“正在为你摇茶”动态点。GIF 会在仓库页面里自动循环播放。
 >
 > 小程序端使用同款 256×256 优化版：[loading.gif](fronted/static/resource/images/loading.gif)。
 
 ## 实机演示
 
-[▶ 点击播放 95 秒实机录屏](https://cdn.jsdelivr.net/gh/keleau/milktea@main/docs/video/demo.mp4)
+<p align="center">
+  <a href="docs/previews/demo.gif"><img src="docs/previews/demo.gif" alt="奶茶点单实机演示预览" width="300"></a>
+</p>
 
-> 直链由 jsDelivr 提供，点击后在浏览器里直接播放，不需要先下载。
+> 上方为 10 秒 GIF 节选，点击可查看完整尺寸；由微信开发者工具真实运行录屏生成，不是设计稿。
 >
-> 备用：[仓库内视频文件](docs/video/demo.mp4)（仅在直链无法访问时使用）。
+> 完整视频：[docs/video/demo.mp4](docs/video/demo.mp4)（95 秒，720×1600，需下载后播放）。
 
 ## 核心亮点
 
@@ -215,7 +218,7 @@ milktea/
 ## 联系
 
 - 简历 / 联系方式：**待补充**
-- 实机演示视频：[▶ 点击播放](https://cdn.jsdelivr.net/gh/keleau/milktea@main/docs/video/demo.mp4)
+- 实机演示：[10 秒 GIF 预览](docs/previews/demo.gif) · [完整视频（需下载后播放）](docs/video/demo.mp4)
 
 ---
 
