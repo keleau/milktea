@@ -20,3 +20,6 @@ fastapi_demo/database/*.db-shm
 
 # 本地设计过程目录
 .oil-ui/
+
+# 编辑器本地配置
+.vscode/

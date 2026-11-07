@@ -17,6 +17,8 @@
 
 > **项目状态：** 本地可运行；界面截图与实机录屏已补；17 个 pytest、并发脚本、MySQL 8 临时库 smoke 通过。
 
+**仓库：** [Gitee](https://gitee.com/keleau/milktea) · [GitHub 镜像](https://github.com/keleau/milktea)
+
 ## 30 秒了解
 
 | 项 | 内容 |
@@ -34,13 +36,10 @@
 |---|---|
 | 演示预览 | [▶ 点击直接观看 10 秒 GIF](docs/previews/demo.gif) |
 | 完整视频 | [docs/video/demo.mp4](docs/video/demo.mp4)（95 秒，需下载后播放） |
-| 小程序体验码 | **待补** |
-| 在线 H5 | 暂未部署 |
-| GitHub | [github.com/keleau/milktea](https://github.com/keleau/milktea) |
 
 > 录屏建议：登录 → 扫码堂食 → 规格加料 → 提交订单 → 微信支付风格收银台 → 取餐码/二维码 → 店员核销 → AI 点单。
 >
-> 素材补齐清单：`小程序体验码`；界面截图和实机录屏已更新。
+> 素材：界面截图、10 秒 GIF 预览和完整录屏已更新。
 
 ## 项目截图
 
@@ -217,7 +216,7 @@ milktea/
 
 ## 联系
 
-- 简历 / 联系方式：**待补充**
+- 项目仓库：[Gitee](https://gitee.com/keleau/milktea) · [GitHub 镜像](https://github.com/keleau/milktea)
 - 实机演示：[10 秒 GIF 预览](docs/previews/demo.gif) · [完整视频（需下载后播放）](docs/video/demo.mp4)
 
 ---
