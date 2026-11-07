@@ -110,7 +110,10 @@
 							@spec="openSpec"
 						/>
 					</view>
-					<view class="no-drink" v-if="!sections.length">{{ loading ? '菜单加载中…' : '这个分区暂时没有饮品，看看别的吧' }}</view>
+					<view class="no-drink" v-if="!sections.length">
+						<BrandLoading v-if="loading" :size="220" />
+						<text v-else>这个分区暂时没有饮品，看看别的吧</text>
+					</view>
 					<view class="list-pad" :class="{ withCart: cartCount }"></view>
 				</view>
 			</scroll-view>
@@ -284,6 +287,7 @@ import ProductCard from '@/components/menu/product-card.vue'
 import CouponTicket from '@/components/menu/coupon-ticket.vue'
 import CategoryRail from '@/components/menu/category-rail.vue'
 import AiFloat from '@/components/ai-float/ai-float.vue'
+import BrandLoading from '@/components/loading/brand-loading.vue'
 import { getLines, getOptions, getProducts, getStores } from '@/common/api/catalog'
 import { claimCoupon, getTemplates } from '@/common/api/coupons'
 import { resolveTable } from '@/common/api/tables'

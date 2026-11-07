@@ -15,8 +15,10 @@
 			</view>
 		</view>
 
+		<BrandLoading v-if="loading" :size="240" />
+
 		<!-- 订单列表 -->
-		<view class="list" v-if="list.length">
+		<view class="list" v-else-if="list.length">
 			<view class="od-card" v-for="o in list" :key="o.out_trade_no" hover-class="hv" @tap="toOrder(o.out_trade_no)">
 				<view class="od-head">
 					<text class="od-no">单号 {{ o.shortNo }}</text>
@@ -58,6 +60,7 @@ import { onShow } from '@dcloudio/uni-app'
 import { getOrders as fetchOrders } from '@/common/api/orders'
 import { ensureLogin } from '@/common/api/auth'
 import { showError } from '@/common/api/request'
+import BrandLoading from '@/components/loading/brand-loading.vue'
 import { takeOrdersFilter } from '@/common/store/session'
 
 const tabs = [

@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="fronted/static/resource/images/brand-logo.png" width="116" alt="四猫茶学园 Logo" />
+</p>
+
 # 四猫茶学园 · 奶茶点单小程序
 
 > 微信小程序（uni-app + Vue3）+ FastAPI 全栈点单系统  
@@ -28,7 +32,7 @@
 
 | 入口 | 状态 |
 |---|---|
-| 实机演示视频 | [手机实机录屏（95 秒）](docs/video/demo.mp4) |
+| 实机演示视频 | [▶ 点击播放（95 秒）](https://cdn.jsdelivr.net/gh/keleau/milktea@main/docs/video/demo.mp4) |
 | 小程序体验码 | **待补** |
 | 在线 H5 | 暂未部署 |
 | GitHub | [github.com/keleau/milktea](https://github.com/keleau/milktea) |
@@ -53,9 +57,23 @@
 |---|---|
 | <img src="docs/screenshots/05-staff-verify.png" width="320" alt="店员核销" /> | <img src="docs/screenshots/06-ai.png" width="320" alt="AI 点单" /> |
 
+## 品牌加载动画
+
+<p align="center">
+  <img src="docs/brand/loading.gif" width="220" alt="四猫茶学园加载动画" />
+</p>
+
+> 页面加载时使用的品牌动图：猫娘 logo 浮动 + 加载弧旋转 + 项目名与“正在为你摇茶”动态点。GIF 会在 GitHub 页面里自动循环播放。
+>
+> 小程序端使用同款 256×256 优化版：[loading.gif](fronted/static/resource/images/loading.gif)。
+
 ## 实机演示
 
-[▶ 观看 95 秒手机实机录屏](docs/video/demo.mp4)
+[▶ 点击播放 95 秒实机录屏](https://cdn.jsdelivr.net/gh/keleau/milktea@main/docs/video/demo.mp4)
+
+> 直链由 jsDelivr 提供，点击后在浏览器里直接播放，不需要先下载。
+>
+> 备用：[仓库内视频文件](docs/video/demo.mp4)（仅在直链无法访问时使用）。
 
 ## 核心亮点
 
@@ -197,7 +215,7 @@ milktea/
 ## 联系
 
 - 简历 / 联系方式：**待补充**
-- 实机演示视频：**待补充**
+- 实机演示视频：[▶ 点击播放](https://cdn.jsdelivr.net/gh/keleau/milktea@main/docs/video/demo.mp4)
 
 ---
 

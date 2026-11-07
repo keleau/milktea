@@ -22,7 +22,9 @@
 			<text class="empty-title">还没有收货地址</text>
 			<text class="empty-sub">新增后外送下单会默认使用它</text>
 		</view>
-		<view class="loading" v-else>加载中…</view>
+		<view class="loading" v-else>
+			<BrandLoading :size="260" />
+		</view>
 
 		<view class="fix-space"></view>
 		<view class="fix-bar">
@@ -61,6 +63,7 @@
 <script setup>
 import { ref } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
+import BrandLoading from '@/components/loading/brand-loading.vue'
 import {
 	createAddress,
 	deleteAddress,

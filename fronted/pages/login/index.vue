@@ -4,7 +4,7 @@
 		<view class="glow glow-b"></view>
 
 		<view class="brand">
-			<image class="logo" src="/static/resource/images/avatar.jpg" mode="aspectFill" />
+			<image class="logo" src="/static/resource/images/brand-logo.png" mode="aspectFill" />
 			<view class="brand-name">四猫茶学园</view>
 			<view class="brand-en">FOUR CATS TEA ACADEMY</view>
 			<view class="brand-desc">一杯好茶，四只猫陪你慢慢喝</view>

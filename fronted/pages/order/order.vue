@@ -126,7 +126,10 @@
 			@confirm="confirmPay"
 		/>
 	</view>
-	<view class="loading" v-else>{{ loadingText }}</view>
+	<view class="loading" v-else>
+		<BrandLoading v-if="loadingText === '加载中…'" :size="280" />
+		<text v-else>{{ loadingText }}</text>
+	</view>
 </template>
 
 <script setup>
@@ -134,6 +137,7 @@ import { ref, computed } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import OrderItemCard from '@/components/order/order-item-card.vue'
 import WechatPaySheet from '@/components/pay/wechat-pay-sheet.vue'
+import BrandLoading from '@/components/loading/brand-loading.vue'
 import { getOptions, getProduct } from '@/common/api/catalog'
 import {
 	cancelOrder as cancelOrderApi,

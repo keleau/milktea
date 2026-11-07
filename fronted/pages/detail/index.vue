@@ -93,12 +93,16 @@
 			</view>
 		</view>
 	</view>
-	<view class="loading" v-else>{{ loadingText }}</view>
+	<view class="loading" v-else>
+		<BrandLoading v-if="loadingText === '加载中…'" :size="280" />
+		<text v-else>{{ loadingText }}</text>
+	</view>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
+import BrandLoading from '@/components/loading/brand-loading.vue'
 import { getLines, getProduct } from '@/common/api/catalog'
 import { showError } from '@/common/api/request'
 import { toDrink } from '@/common/api/adapters'

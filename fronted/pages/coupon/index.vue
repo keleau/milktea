@@ -13,6 +13,8 @@
 			</view>
 		</view>
 
+		<BrandLoading v-if="loading" :size="240" />
+
 		<view class="coupon-list" v-if="myCoupons.length">
 			<view class="my-card" v-for="cp in myCoupons" :key="cp.id" :class="{ dim: cp.status !== 'unused' }">
 				<view class="mc-cut">
@@ -48,6 +50,7 @@
 import { ref, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import CouponTicket from '@/components/menu/coupon-ticket.vue'
+import BrandLoading from '@/components/loading/brand-loading.vue'
 import { claimCoupon, getMyCoupons, getTemplates } from '@/common/api/coupons'
 import { ensureLogin } from '@/common/api/auth'
 import { showError } from '@/common/api/request'
